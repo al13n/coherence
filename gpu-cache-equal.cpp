@@ -36,8 +36,8 @@ int main(){
 			*/
 			
 			if(type == "MEMRD64B"){
-				ull lsb = (address & ((1<<20)-1));
-				ull msb = (address >> 20);
+				ull lsb = (address & ((1<<26)-1)) >> 6;
+				ull msb = (address >> 26);
 				cout << std::hex << address << " " << lsb << " " << msb << endl;
 				//cout << std::hex << msb << endl;
 				// msb acts as tag
