@@ -1,4 +1,7 @@
 all: main
 
 main:
-	g++ -o coherence gpu-cache-equal.cpp
+	g++ -std=c++11 -o coherence gpu-cache-equal.cpp
+
+clean:
+	rm coherence
