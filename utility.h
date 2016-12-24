@@ -24,7 +24,7 @@ inline UL __getaddress_cache__(const UL cpu_address)
 
 inline UL __makeaddress_cache__(const UL gpu_address, const UL tag)
 {
-	return (tag << (GPU_ADDRESS_LEN + GPU_OFFSET_LEN)) | (gpu_address);
+	return (tag << (GPU_ADDRESS_LEN)) | (gpu_address);
 }
 
 #endif
