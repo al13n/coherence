@@ -1,5 +1,6 @@
 #ifndef __DIR_SIMULTOR_H__
 #define __DIR_SIMULATOR_H__
+#include "utility.h"
 
 class dir_simulator {
 private:

@@ -1,6 +1,6 @@
 #include <bits/stdc++.h>
-#include "utility.h"
 #include "dir-simulator.h"
+#include "gpu-simulator.h"
 
 int main(){
 	string instruction;
@@ -14,7 +14,7 @@ int main(){
 		int thd;
 		ss >> type;
 		ss >> std::hex >> address;
-		ss >> thd;
+		ss >> std::dec >> thd;
 		if (thd < 12)
 		{
 			// The cpu needs to access some memory, ask the coherence directory about it
@@ -29,12 +29,7 @@ int main(){
 			if (type == "MEMRD64B")
 			{	
 				_dir.insert(address);
-				UL gpu_address = __getaddress_gpu__(address);
-				UL tag = __gettag_gpu__(address);
-				
-				if(!_gpu.is_tag_present(gpu_address, tag)){
-					_gpu.insert_tag(gpu_address, tag);
-				}
+				_gpu.insert(address);
 			} else {
 				// just confirm that it's the same address.
 			}
@@ -44,6 +39,8 @@ int main(){
 	cout << "Directory usage/consult: " << _dir.get_consult() << endl;
 	cout << "Directory size: " << _dir.size() << endl;
 	cout << "False positives: " << _dir.get_fp() << endl;
-	if (_dir.get_fp())	_dir.display_fps();	
+	//if (_dir.get_fp())	_dir.display_fps();	
+	_gpu.print();
+	_gpu._print_gpu_address_ranges();
 	return 0;
 }
