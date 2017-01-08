@@ -2,41 +2,44 @@
 #define __DIR_SIMULATOR_H__
 #include "utility.h"
 
+/*
+ *	Typename 'T' should have the following api's:
+ *		- insert(unsigned long int key) -> pair<key, flag> : bool flag = success(?) 
+ *		- find(unsigned long int key) -> iterator<T>
+ *		- erase(unsigned long int key) -> bool/int
+ *		- size() -> size of ds
+ *		- end() -> iterator<T> to end of ds
+ *	
+ */
+template <typename T>
 class dir_simulator {
 private:
-	set<UL> dir_mem;
+	T dir_mem;
 	UL consult;
 	UL fp;
-	set<UL> fps;
 public:
-	dir_simulator():consult(0), fp(0){}
-	
+	dir_simulator():fp(0){}
+
 	UL get_fp() { return fp; }
-	UL get_consult() { return consult; }
-	
-	void false_positive(UL cpu_address) { fps.insert(cpu_address), fp++; }
+
+	void false_positive() { /*fps.insert(cpu_address),*/ fp++; }
 	int size() { return dir_mem.size(); }
 
 	bool exists(const UL cpu_address)
 	{	
-		consult++;
 		return dir_mem.find(__getaddress_cache__(cpu_address)) != dir_mem.end();
 	}
-	
+
 	bool insert(const UL cpu_address)
 	{
 		return dir_mem.insert(__getaddress_cache__(cpu_address)).second;
 	}
-	
+
+	bool remove(const UL cpu_address)
+	{
+		return dir_mem.erase(__getaddress_cache__(cpu_address));
+	}
 	void display_fps();
 };
 
-void dir_simulator::display_fps()
-{
-	cout << "---------------------------\n";
-	cout << "False positive addresses:\n";
-	for(auto it: fps)
-		cout << std::hex << it << " " << std::dec << __getaddress_gpu__(it) << endl;
-	cout << "---------------------------\n";
-}
 #endif

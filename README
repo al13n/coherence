@@ -1,0 +1,5 @@
+How to run:
+(in is the input file)
+
+make
+./coherence < in

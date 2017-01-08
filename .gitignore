@@ -3,4 +3,4 @@ lulesh.trace
 coherence
 *.o
 *.out
-
+*.swp

@@ -4,10 +4,11 @@
 
 int main(){
 	string instruction;
+	dir_simulator< set<UL> > _dir;
 	gpu_simulator _gpu(1<<GPU_ADDRESS_LEN);
-	dir_simulator _dir;
 
-	while(getline(cin, instruction)) {
+	while (getline(cin, instruction))
+	{
 		stringstream ss(instruction);
 		string type;
 		UL address;
@@ -17,30 +18,40 @@ int main(){
 		ss >> std::dec >> thd;
 		if (thd < 12)
 		{
-			// The cpu needs to access some memory, ask the coherence directory about it
-			//Consult cache
-			if (_dir.exists(address))
+			if (type == "MEMRD64B")
 			{
-				if (!_gpu.address_exists(address))
-					_dir.false_positive(address);
-			}
+				if (_dir.exists(address))
+				{
+					if (!_gpu.address_exists(address) || !_gpu.address_isdirty(address))
+						_dir.false_positive();
+					_dir.remove(address);
+				}
+				if (_gpu.address_exists(address))
+					_gpu.address_markclean(address);
 			
+			} else if(type == "RDINV64B") {
+				if (_dir.exists(address))
+					_dir.remove(address);
+				if (_gpu.address_exists(address))
+					_gpu.address_remove(address);
+			} else {
+				//writeback
+			}
 		} else {
 			if (type == "MEMRD64B")
 			{	
+				_gpu.load(address);
+			} else if (type == "RDINV64B") {
+				// Should there be a way in which the gpu(internally) informs the directory, when it needs to mark some address dirty?
 				_dir.insert(address);
-				_gpu.insert(address);
+				_gpu.store(address);
 			} else {
-				// just confirm that it's the same address.
+				// writeback
 			}
 		}
 	}
 	
-	cout << "Directory usage/consult: " << _dir.get_consult() << endl;
 	cout << "Directory size: " << _dir.size() << endl;
 	cout << "False positives: " << _dir.get_fp() << endl;
-	//if (_dir.get_fp())	_dir.display_fps();	
-	_gpu.print();
-	_gpu._print_gpu_address_ranges();
 	return 0;
 }

@@ -9,7 +9,7 @@ static const int GPU_ADDRESS_LEN = 20;
 
 inline UL __getaddress_gpu__(const UL cpu_address)
 {
-	return (cpu_address >> GPU_OFFSET_LEN) & ((UL)(1<<GPU_ADDRESS_LEN) - 1);
+	return (cpu_address >> GPU_OFFSET_LEN) & (((UL)1<<GPU_ADDRESS_LEN) - 1);
 }
 
 inline UL __gettag_gpu__(const UL cpu_address)
@@ -27,4 +27,8 @@ inline UL __makeaddress_cache__(const UL gpu_address, const UL tag)
 	return (tag << (GPU_ADDRESS_LEN)) | (gpu_address);
 }
 
+inline pair<UL, UL> __getaddresstagpair_gpu__(const UL cpu_address)
+{
+	return make_pair( __getaddress_gpu__(cpu_address), __gettag_gpu__(cpu_address) );
+}
 #endif
