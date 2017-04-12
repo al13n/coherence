@@ -1,11 +1,23 @@
 #include <bits/stdc++.h>
-#include "dir-simulator.h"
 #include "gpu-simulator.h"
+#include "dir-simulator.h"
 
-int main(){
+int usage(bool get = false) {
+	static int consult = 0;
+	if(get) return consult;
+	return ++consult;
+}
+
+int false_positive(bool get = false) {
+	static int fps = 0;
+	if(get) return fps;
+	return ++fps;
+}
+
+int main() {
 	string instruction;
-	dir_simulator< set<UL> > _dir;
-	gpu_simulator _gpu(1<<GPU_ADDRESS_LEN);
+	dir_simulator _dir;
+	gpu_simulator _gpu;
 
 	while (getline(cin, instruction))
 	{
@@ -16,42 +28,84 @@ int main(){
 		ss >> type;
 		ss >> std::hex >> address;
 		ss >> std::dec >> thd;
+		
+		//CPU
 		if (thd < 12)
-		{
+		{	//LOAD
 			if (type == "MEMRD64B")
 			{
-				if (_dir.exists(address))
-				{
-					if (!_gpu.address_exists(address) || !_gpu.address_isdirty(address))
-						_dir.false_positive();
-					_dir.remove(address);
+				if (_dir.exists(address)) {
+					// The address is in the GPU and it could either be clean or dirty
+					
+					// 1. - Is it dirty? Ask the directory (could be a false alarm) 
+					//    - If yes, clean it up on the GPU, inform the GPU and load it to CPU
+					
+					if(_dir.isdirty(address)) {
+						usage();
+						if(!_gpu.isdirty(address)) {
+							false_positive();
+							_dir.inform_falsepositive_dirty(address);
+						} else {
+							_gpu.resetdirtybit(address);
+						}
+					}
+
+					// 2. - So, it's clean. Doesnt matter
 				}
-				if (_gpu.address_exists(address))
-					_gpu.address_markclean(address);
-			
-			} else if(type == "RDINV64B") {
-				if (_dir.exists(address))
-					_dir.remove(address);
-				if (_gpu.address_exists(address))
-					_gpu.address_remove(address);
-			} else {
+			}
+			// STORE 
+			else if(type == "RDINV64B") {
+				
+				// Is the address present in the GPU - dirty or clean?
+				if (_dir.exists(address)) {
+					usage();
+					if(!_gpu.exists(address)) {
+						false_positive();
+						_dir.inform_falsepositive_exists(address);
+					} else {
+						_gpu.remove(address);
+					}
+				}
+			}
+			//WRITEBACK
+			else {
 				//writeback
 			}
-		} else {
-			if (type == "MEMRD64B")
-			{	
-				_gpu.load(address);
-			} else if (type == "RDINV64B") {
-				// Should there be a way in which the gpu(internally) informs the directory, when it needs to mark some address dirty?
+		}
+		//GPU
+		else {
+			// LOAD
+			if (type == "MEMRD64B") {	
+				// Is this address present on the GPU? - dont care
+				
+				// Is this address being replaced on the GPU? - update directory
+				if (_gpu.isreplace(address)) {
+					UL r_address = _gpu.getaddress_replace(address);
+					_dir.remove(r_address, true);
+				}
+				
 				_dir.insert(address);
-				_gpu.store(address);
-			} else {
+				_gpu.insert(address);
+			}
+			// STORE
+			else if (type == "RDINV64B") {
+				// Is this address being replaced on the GPU?
+				if (_gpu.isreplace(address)) {
+					UL r_address = _gpu.getaddress_replace(address);
+					_dir.remove(r_address, true);
+				}
+				_gpu.insert(address);
+				_gpu.setdirtybit(address);
+				_dir.insert(address);
+				_dir.markdirty(address);
+				
+			}
+			// WRITEBACK
+			else {
 				// writeback
 			}
 		}
 	}
 	
-	cout << "Directory size: " << _dir.size() << endl;
-	cout << "False positives: " << _dir.get_fp() << endl;
 	return 0;
 }

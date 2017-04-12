@@ -31,4 +31,5 @@ inline pair<UL, UL> __getaddresstagpair_gpu__(const UL cpu_address)
 {
 	return make_pair( __getaddress_gpu__(cpu_address), __gettag_gpu__(cpu_address) );
 }
+
 #endif

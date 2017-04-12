@@ -2,85 +2,79 @@
 #define __GPU_SIMULATOR_H__
 #include "utility.h"
 
+
 class gpu_simulator {
+private:	
 	struct data {
-		unsigned long int tag : 63;
+		unsigned long int tag : 62;
+		unsigned int present : 1;
 		unsigned int isdirty : 1;
 	};
-private:
 	vector<data> gpu_mem;
 	UL mem_sz;
-	bool is_tag_present(const UL gpu_address, const UL tag)
-	{
-		return gpu_mem[gpu_address].tag == tag;
-	}
-
-	UL insert_tag(const UL gpu_address, const UL tag)
-	{
-		if (!is_tag_present(gpu_address, tag))
-			gpu_mem[gpu_address] = { tag, 0 };
-		
-		return tag;
-	}
-
-	bool mark_dirty(const UL gpu_address)
-	{
-		// Should it inform directory?
-		return gpu_mem[gpu_address].isdirty = 1;	
-	}
 public:	
-	gpu_simulator(){}
-	gpu_simulator(UL size): mem_sz(size)
-	{
-		gpu_mem.resize(size, {0, 0});
+	gpu_simulator(){
+		gpu_mem.resize((1<<(GPU_ADDRESS_LEN+1)), {0, 0, 0});	
 	}
 
-	bool address_exists(const UL);
-	bool address_isdirty(const UL);
-	void address_markclean(const UL);
-	void address_remove(const UL);
-	UL load(const UL);
-	void store(const UL);
+	bool exists(const UL);
+	bool isdirty(const UL);
+	bool isreplace(const UL);
+	bool resetdirtybit(const UL);
+	bool setdirtybit(const UL);
+	void remove(const UL);
+	void insert(const UL);
+	UL getaddress_replace(const UL);
+	
 };
 
-bool gpu_simulator::address_exists(const UL cpu_address)
-{
+bool gpu_simulator::exists(const UL cpu_address) {
 	pair<UL, UL> _addresstag = __getaddresstagpair_gpu__(cpu_address);
-	return is_tag_present(_addresstag.first, _addresstag.second);
+	return gpu_mem[_addresstag.first].present && (gpu_mem[_addresstag.first].tag == _addresstag.second);
 }
 
-bool gpu_simulator::address_isdirty(const UL cpu_address)
-{
+bool gpu_simulator::isdirty(const UL cpu_address) {
 	pair<UL, UL> _addresstag = __getaddresstagpair_gpu__(cpu_address);
-	if (address_exists(cpu_address))
-		return gpu_mem[_addresstag.first].isdirty;
+	return exists(cpu_address) && gpu_mem[_addresstag.first].isdirty;
+}
+
+bool gpu_simulator::isreplace(const UL cpu_address) {
+	pair<UL, UL> _addresstag = __getaddresstagpair_gpu__(cpu_address);
+	return (gpu_mem[_addresstag.first].present) && (gpu_mem[_addresstag.first].tag != _addresstag.second);
+}
+
+bool gpu_simulator::resetdirtybit(const UL cpu_address) {
+	if (exists(cpu_address)) {
+		pair<UL, UL> _addresstag = __getaddresstagpair_gpu__(cpu_address);
+		gpu_mem[_addresstag.first].isdirty = 0;
+		return true;
+	}
 	return false;
 }
 
-void gpu_simulator::address_markclean(const UL cpu_address)
-{
-	pair<UL, UL> _addresstag = __getaddresstagpair_gpu__(cpu_address);
-	if (address_exists(cpu_address) && address_isdirty(cpu_address))
-		gpu_mem[_addresstag.first].isdirty = 0;
+bool gpu_simulator::setdirtybit(const UL cpu_address) {
+	if (exists(cpu_address)) {
+		pair<UL, UL> _addresstag = __getaddresstagpair_gpu__(cpu_address);
+		gpu_mem[_addresstag.first].isdirty = 1;
+		return true;
+	}
+	return false;
 }
 
-void gpu_simulator::address_remove(const UL cpu_address)
-{
+void gpu_simulator::remove(const UL cpu_address) {
 	pair<UL, UL> _addresstag = __getaddresstagpair_gpu__(cpu_address);
-	if (address_exists(cpu_address))
-		gpu_mem[_addresstag.first] = {0, 0};	
+	gpu_mem[_addresstag.first] = {0, 0, 0};
 }
 
-UL gpu_simulator::load(const UL cpu_address)
-{
+void gpu_simulator::insert(const UL cpu_address) {
 	pair<UL, UL> _addresstag = __getaddresstagpair_gpu__(cpu_address);
-	return insert_tag(_addresstag.first, _addresstag.second);
+	gpu_mem[_addresstag.first] = {0, 0, 0};
+	gpu_mem[_addresstag.first].tag = _addresstag.second;
+	gpu_mem[_addresstag.first].present = 1;	
 }
 
-void gpu_simulator::store(const UL cpu_address)
-{
+UL gpu_simulator::getaddress_replace(const UL cpu_address) {
 	pair<UL, UL> _addresstag = __getaddresstagpair_gpu__(cpu_address);
-	insert_tag(_addresstag.first, _addresstag.second);
-	mark_dirty(_addresstag.first);
+	return __makeaddress_cache__(_addresstag.first, gpu_mem[_addresstag.first].tag);
 }
 #endif
