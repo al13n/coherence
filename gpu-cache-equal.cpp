@@ -47,6 +47,7 @@ int main() {
 							_dir.inform_falsepositive_dirty(address);
 						} else {
 							_gpu.resetdirtybit(address);
+							_dir.removedirty(address);
 						}
 					}
 
@@ -64,6 +65,7 @@ int main() {
 						_dir.inform_falsepositive_exists(address);
 					} else {
 						_gpu.remove(address);
+						_dir.remove(address);
 					}
 				}
 			}

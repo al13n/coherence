@@ -28,9 +28,9 @@ private:
 	
 		bool addtorange(const UL insert_val) {
 			if ( !(	
-				findinrange(insert_val+1) 
-				|| findinrange(insert_val) 
-				|| (insert_val != 0 && findinrange(insert_val-1))
+				findinrange(insert_val) 
+				|| ((insert_val+1) != 0	&&	findinrange(insert_val+1)) 
+				|| (insert_val 	   != 0	&&	findinrange(insert_val-1))
 			      ) 
 			) {
 				return false;
@@ -51,9 +51,11 @@ private:
 			return end < x.start;
 		}
 		
+		/*	
 		bool overlaps(const rangedata next) {
 			return (start <= next.end) && (end >= next.start);
 		}
+		*/
 	};
 
 	struct line {
@@ -180,6 +182,23 @@ private:
 			return false;
 		}
 		
+		bool insert(const UL address) {
+			if (!existsinvector(address_load, address)) {
+				return insertinvector(address_load, address);
+			}
+			return false;
+		}
+		
+		bool remove(const UL address) {
+			if (existsinvector(address_load, address)) {
+				removefromvector(address_load, address);
+				removefromvector(address_dirty, address);
+				removefromvector(false_positive_dirty, address);
+				removefromvector(false_positive_exist, address);
+				return true;
+			}
+			return false;
+		}
 		
 	}
 	
@@ -188,19 +207,67 @@ private:
 		line data;
 	};
 	
-	vector<lrulines> dir_mem;
+	std::vector<lrulines> dir_mem;
+
+	static const UL close_range_insert_limit = 16;
 public:
 	dir_simulator(){}
 
 	int size() { return dir_mem.size(); }
 
 	bool exists(const UL cpu_address) {
+		UL gpu_address = __getaddress_cache__(cpu_address);
+		bool flag = false;
+		for (auto &idx: dir_mem) {
+			if (!flag && idx.data.existsinline(gpu_address)) {
+				flag = true;
+				idx.age = 0;
+			} else {
+				idx.age++;
+			}
+		}
+		return flag;
 	}
 
 	bool insert(const UL cpu_address) {
+		UL gpu_address = __getaddress_cache__(cpu_address);
+		bool flag = false;
+		for (auto &idx: dir_mem) {
+			if (!flag && idx.data.closest(gpu_address) <= close_range_insert_limit) {
+				idx.data.insert(gpu_address);
+				idx.age = 0;
+				flag = true;
+			} else {
+				idx.age++;	
+			}
+		}
+
+		if (!flag) {
+			lrulines newlruline;
+			newlruline.age = 0;
+			newlruline.data.insert(gpu_address);
+			dir_mem.push_back(newlruline);
+			flag = true;
+		}
+		return flag;
 	}
 
-	bool remove(const UL address, int isgpuaddress) {
+	bool remove(const UL address, bool isgpuaddress = false) {
+		UL cpu_address = address;
+		if (!isgpuaddress) {
+			cpu_address = __getaddress_cache__(address);
+		}
+		bool flag = false;
+		for(auto &idx: dir_mem) {
+			if (!flag && idx.data.remove(address)) {
+				flag = true;
+				idx.age = 0;
+			} else {
+				idx.age++;
+			}
+		}
+		
+		return flag;
 	}
 
 	bool inform_falsepositive_dirty(UL address) {
@@ -211,10 +278,48 @@ public:
 	
 	}
 
-	bool isdirty(UL address) {
+	bool isdirty(UL cpu_address) {
+		UL gpu_address = __getaddress_cache__(cpu_address);
+		bool flag = false;
+		bool once = false;
+		for (auto &idx: dir_mem) {
+			if (!once && idx.data.existsinline(gpu_address)) {
+				flag = idx.data.isdirty(gpu_address);
+				idx.age = 0;
+				once = true;
+			} else {
+				idx.age++;
+			}
+		}
+		return flag;
 	}
 	
-	bool markdirty(UL address) {
+	bool markdirty(UL cpu_address) {
+		UL gpu_address = __getaddress_cache__(cpu_address);
+		bool flag = false;	
+		for (auto &idx: dir_mem) {
+			if(!flag && idx.data.insertdirty(gpu_address)) {
+				idx.age = 0;
+				flag = true;
+			} else {
+				idx.age++;
+			}
+		}
+		return flag;
+	}
+	
+	bool removedirty(UL cpu_address) {
+		UL gpu_address = __getaddress_cache__(cpu_address);
+		bool flag = false;	
+		for (auto &idx: dir_mem) {
+			if(!flag && idx.data.removedirty(gpu_address)) {
+				idx.age = 0;
+				flag = true;
+			} else {
+				idx.age++;
+			}
+		}
+		return flag;
 	}
 };
 
