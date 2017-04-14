@@ -53,12 +53,6 @@ private:
 			return end < x.start;
 		}
 		
-		/*	
-		bool overlaps(const rangedata next) {
-			return (start <= next.end) && (end >= next.start);
-		}
-		*/
-
 		void print() {
 			cout << "START:\t" << start << " " << "END:\t" << end << endl;
 		}
@@ -69,6 +63,16 @@ private:
 		std::vector<rangedata> address_dirty; // Keep them in order
 		std::vector<rangedata> false_positive_exist; // We said yes to exist earlier, but it does not - keep it accurate
 		std::vector<rangedata> false_positive_dirty; // We said yes to dirty earlier, but it is not - keep it accurate
+		
+		UL size() {
+			UL total_size = 0;
+			total_size += address_load.size();
+			total_size += address_dirty.size();
+			total_size += false_positive_exist.size();
+			total_size += false_positive_dirty.size();
+			//total size * 2 = size of rangedata
+			return (total_size<<1);
+		}
 		
 		void resetline() {
 			/* #region: make it ready for new range insertion */
@@ -220,6 +224,7 @@ private:
 				// Optional to remove from dirty vector
 				// removedirty(address);
 				insertinvector(false_positive_dirty, address);
+				print();
 				return true;
 			}
 			return false;
@@ -230,6 +235,7 @@ private:
 				// Optional to remove from address_load vector
 				// removefromvector(address_load, address);
 				insertinvector(false_positive_exist, address);
+				print();
 				return true;
 			}
 			return false;
@@ -289,7 +295,14 @@ private:
 public:
 	dir_simulator(){}
 
-	int size() { return dir_mem.size(); }
+	UL size() { 
+		cout << "Number of directory lines: " << dir_mem.size() << endl;
+		UL total_size = 0;
+		for(auto idx: dir_mem) {
+			total_size += idx.data.size() + 1;
+		}
+		return total_size;
+	}
 
 	bool exists(const UL cpu_address) {
 		UL gpu_address = __getaddress_cache__(cpu_address);

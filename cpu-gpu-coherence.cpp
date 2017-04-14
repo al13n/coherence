@@ -10,7 +10,6 @@ int usage() {
 }
 
 int false_positive() {
-	cout << "FALSE";
 	return ++fps;
 }
 
@@ -18,7 +17,13 @@ int main() {
 	string instruction;
 	dir_simulator _dir;
 	gpu_simulator _gpu;
-
+	
+	int cpu_loads = 0;
+	int cpu_stores = 0;
+	int gpu_loads = 0;
+	int gpu_stores = 0;
+	
+	int errors = 0;
 	while (getline(cin, instruction))
 	{
 		stringstream ss(instruction);
@@ -34,6 +39,7 @@ int main() {
 		{	//LOAD
 			if (type == "MEMRD64B")
 			{
+				cpu_loads++;
 				usage();
 				if (_dir.exists(address)) {
 					// The address is in the GPU and it could either be clean or dirty
@@ -41,21 +47,29 @@ int main() {
 					// 1. - Is it dirty? Ask the directory (could be a false alarm) 
 					//    - If yes, clean it up on the GPU, inform the GPU and load it to CPU
 					if(_dir.isdirty(address)) {
-						if(!_gpu.isdirty(address)) {
+						if (!_gpu.isdirty(address)) {
 							false_positive();
 							_dir.inform_falsepositive_dirty(address);
 						} else {
 							_gpu.resetdirtybit(address);
 							_dir.removedirty(address);
 						}
+					} else {
+						if (_gpu.isdirty(address)) {
+							errors++;
+						}
 					}
 
 					// 2. - So, it's clean. Doesnt matter
+				} else {
+					if (_gpu.exists(address)) {
+						errors++;
+					}
 				}
 			}
 			// STORE 
 			else if(type == "RDINV64B") {
-				
+				cpu_stores++;
 				usage();
 				// Is the address present in the GPU - dirty or clean?
 				if (_dir.exists(address)) {
@@ -65,6 +79,10 @@ int main() {
 					} else {
 						_gpu.remove(address);
 						_dir.remove(address, false);
+					}
+				} else {
+					if (_gpu.exists(address)) {
+						errors++;
 					}
 				}
 			}
@@ -76,7 +94,8 @@ int main() {
 		//GPU
 		else {
 			// LOAD
-			if (type == "MEMRD64B") {	
+			if (type == "MEMRD64B") {
+				gpu_loads++;	
 				// Is this address present on the GPU? - dont care
 				
 				// Is this address being replaced on the GPU? - update directory
@@ -90,6 +109,7 @@ int main() {
 			}
 			// STORE
 			else if (type == "RDINV64B") {
+				gpu_stores++;
 				// Is this address being replaced on the GPU?
 				if (_gpu.isreplace(address)) {
 					UL r_address = _gpu.getaddress_replace(address);
@@ -108,8 +128,10 @@ int main() {
 		}
 	}
 	
-	_dir.print();
-	cout << "NUMBER OF DIRECTORY LINES: \t" <<_dir.size() << endl;
+	//_dir.print();
+	cout << "ERRORS: " << errors << endl;
+	cout << "CPU LOADS: " << cpu_loads << " CPU STORES: " << cpu_stores << " GPU LOADS: " << gpu_loads << " GPU STORES: " << gpu_stores << endl;
+	cout << "SIZE OF DIRECTORY: \t" << _dir.size()*8 << " bytes" << endl;
 	cout << consult<< " " << fps << " " << fps*1.0/consult << endl;	
 	return 0;
 }

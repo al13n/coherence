@@ -1,7 +1,7 @@
 all: main
 
 main:
-	g++ -std=c++11 -o coherence cpu-gpu-coherence.cpp
+	g++ -std=c++11 -o coherence -g cpu-gpu-coherence.cpp
 
 clean:
 	rm coherence
