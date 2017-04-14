@@ -1,6 +1,7 @@
 in*
 lulesh.trace
 coherence
+trashcode/
 *.o
 *.out
 *.swp

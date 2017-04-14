@@ -4,6 +4,8 @@
 #include <vector>
 #include <algorithm>
 
+#define CLOSEST_RANGE_INSERT_LIMIT 16
+
 /*
  *	Typename 'T' should have the following api's:
  *		- insert(unsigned long int key) -> pair<key, flag> : bool flag = success(?) 
@@ -47,7 +49,7 @@ private:
 			return true;
 		}
 	
-		bool operator < (const rangedata x) {
+		bool operator < (const rangedata x) const {
 			return end < x.start;
 		}
 		
@@ -56,6 +58,10 @@ private:
 			return (start <= next.end) && (end >= next.start);
 		}
 		*/
+
+		void print() {
+			cout << "START:\t" << start << " " << "END:\t" << end << endl;
+		}
 	};
 
 	struct line {
@@ -63,6 +69,15 @@ private:
 		std::vector<rangedata> address_dirty; // Keep them in order
 		std::vector<rangedata> false_positive_exist; // We said yes to exist earlier, but it does not - keep it accurate
 		std::vector<rangedata> false_positive_dirty; // We said yes to dirty earlier, but it is not - keep it accurate
+		
+		void resetline() {
+			/* #region: make it ready for new range insertion */
+			address_load.clear();
+			address_dirty.clear();
+			false_positive_exist.clear();
+			false_positive_dirty.clear();
+			/* #endregion	*/
+		}
 		
 		bool existsinvector(vector<rangedata> & vec, const UL &check_address) {
 			for (auto &idx: vec) {
@@ -106,22 +121,22 @@ private:
 			}
 			
 			if (pos != -1) {
-				if (vec[i].start == address) {
-					vec[i].start = address+1;
-					if (vec[i].start > vec[i].end) {
-						vec.erase(vec.begin() + i);
+				if (vec[pos].start == address) {
+					vec[pos].start = address+1;
+					if (vec[pos].start > vec[pos].end) {
+						vec.erase(vec.begin() + pos);
 					}
 				}
-				else if (vec[i].end == address) {
-					vec[i].end = address - 1;
-					if (vec[i].start > vec[i].end) {
-						vec.erase(vec.begin() + i);
+				else if (vec[pos].end == address) {
+					vec[pos].end = address - 1;
+					if (vec[pos].start > vec[pos].end) {
+						vec.erase(vec.begin() + pos);
 					}
 				}
 				else {
-					int s = vec[i].start;
-					int e = vec[i].end;
-					vec.erase(vec.begin() + i);
+					int s = vec[pos].start;
+					int e = vec[pos].end;
+					vec.erase(vec.begin() + pos);
 					if (address > s) {
 						rangedata newrange(s, address-1);
 						vec.push_back(newrange);
@@ -199,8 +214,70 @@ private:
 			}
 			return false;
 		}
+
+		bool inform_falsepositive_dirty(const UL address) {
+			if (existsinvector(address_load, address)) {
+				// Optional to remove from dirty vector
+				// removedirty(address);
+				insertinvector(false_positive_dirty, address);
+				return true;
+			}
+			return false;
+		}
+
+		bool inform_falsepositive_exists(const UL address) {
+			if (existsinvector(address_load, address)) {
+				// Optional to remove from address_load vector
+				// removefromvector(address_load, address);
+				insertinvector(false_positive_exist, address);
+				return true;
+			}
+			return false;
+		}
 		
-	}
+		int closest(const UL address) {
+			if (address_load.size() != 0) {
+				UL mn = CLOSEST_RANGE_INSERT_LIMIT + 1;
+				for (auto idx: address_load) {
+					if (idx.findinrange(address)) {
+						return 0;
+					} else {
+						UL dist1 = abs(idx.start - address);
+						UL dist2 = abs(idx.end - address);
+						mn = min(mn,  min(dist1, dist2));
+					}
+				}
+				return mn;
+			}		
+			/* #region: make it ready for new range insertion */
+			resetline();
+			/* #endregion	*/
+			return 0;
+		}
+
+		void print() {
+			cout << "----------------------------------------------\n";
+			cout << "address_load ranges:\n";
+			for(auto idx: address_load) {
+				idx.print();
+			}
+			
+			cout << "address_dirty ranges:\n";
+			for(auto idx: address_dirty) {
+				idx.print();
+			}
+			cout << "false_positive_exist ranges:\n";
+			for(auto idx: false_positive_exist) {
+				idx.print();
+			}
+			cout << "false_positive_dirty ranges:\n";
+			for(auto idx: false_positive_dirty) {
+				idx.print();
+			}
+			cout << "----------------------------------------------\n";
+		}
+		
+	};
 	
 	struct lrulines {
 		int age;
@@ -209,7 +286,6 @@ private:
 	
 	std::vector<lrulines> dir_mem;
 
-	static const UL close_range_insert_limit = 16;
 public:
 	dir_simulator(){}
 
@@ -233,7 +309,7 @@ public:
 		UL gpu_address = __getaddress_cache__(cpu_address);
 		bool flag = false;
 		for (auto &idx: dir_mem) {
-			if (!flag && idx.data.closest(gpu_address) <= close_range_insert_limit) {
+			if (!flag && idx.data.closest(gpu_address) <= CLOSEST_RANGE_INSERT_LIMIT) {
 				idx.data.insert(gpu_address);
 				idx.age = 0;
 				flag = true;
@@ -252,14 +328,14 @@ public:
 		return flag;
 	}
 
-	bool remove(const UL address, bool isgpuaddress = false) {
+	bool remove(const UL address, bool isgpuaddress) {
 		UL cpu_address = address;
 		if (!isgpuaddress) {
 			cpu_address = __getaddress_cache__(address);
 		}
 		bool flag = false;
-		for(auto &idx: dir_mem) {
-			if (!flag && idx.data.remove(address)) {
+		for (auto &idx: dir_mem) {
+			if (!flag && idx.data.remove(cpu_address)) {
 				flag = true;
 				idx.age = 0;
 			} else {
@@ -270,12 +346,32 @@ public:
 		return flag;
 	}
 
-	bool inform_falsepositive_dirty(UL address) {
-	
+	bool inform_falsepositive_dirty(UL cpu_address) {
+		UL gpu_address = __getaddress_cache__(cpu_address);
+		bool flag = false;
+		for (auto &idx: dir_mem) {
+			if (!flag && idx.data.inform_falsepositive_dirty(gpu_address)) {
+				flag = true;
+				idx.age = 0;
+			} else {
+				idx.age++;
+			}
+		}
+		return flag;
 	}
 	
-	bool inform_falsepositive_exists(UL address) {
-	
+	bool inform_falsepositive_exists(UL cpu_address) {
+		UL gpu_address = __getaddress_cache__(cpu_address);
+		bool flag = false;
+		for (auto &idx: dir_mem) {
+			if (!flag && idx.data.inform_falsepositive_exists(gpu_address)) {
+				idx.age = 0;
+				flag = true;
+			} else {
+				idx.age++;
+			}
+		}
+		return flag;
 	}
 
 	bool isdirty(UL cpu_address) {
@@ -320,6 +416,15 @@ public:
 			}
 		}
 		return flag;
+	}
+	
+	void print() {
+		for (auto &idx: dir_mem) {
+			cout << "###############################################################\n";
+			cout << "AGE:\t" << idx.age << endl;
+			idx.data.print();
+			cout << "###############################################################\n";
+		}
 	}
 };
 

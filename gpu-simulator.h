@@ -68,6 +68,9 @@ void gpu_simulator::remove(const UL cpu_address) {
 
 void gpu_simulator::insert(const UL cpu_address) {
 	pair<UL, UL> _addresstag = __getaddresstagpair_gpu__(cpu_address);
+	if (exists(cpu_address)) {
+		return;
+	}
 	gpu_mem[_addresstag.first] = {0, 0, 0};
 	gpu_mem[_addresstag.first].tag = _addresstag.second;
 	gpu_mem[_addresstag.first].present = 1;	

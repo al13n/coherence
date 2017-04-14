@@ -2,15 +2,15 @@
 #include "gpu-simulator.h"
 #include "dir-simulator.h"
 
-int usage(bool get = false) {
-	static int consult = 0;
-	if(get) return consult;
+int fps = 0;
+int consult = 0;
+
+int usage() {
 	return ++consult;
 }
 
-int false_positive(bool get = false) {
-	static int fps = 0;
-	if(get) return fps;
+int false_positive() {
+	cout << "FALSE";
 	return ++fps;
 }
 
@@ -34,14 +34,13 @@ int main() {
 		{	//LOAD
 			if (type == "MEMRD64B")
 			{
+				usage();
 				if (_dir.exists(address)) {
 					// The address is in the GPU and it could either be clean or dirty
 					
 					// 1. - Is it dirty? Ask the directory (could be a false alarm) 
 					//    - If yes, clean it up on the GPU, inform the GPU and load it to CPU
-					
 					if(_dir.isdirty(address)) {
-						usage();
 						if(!_gpu.isdirty(address)) {
 							false_positive();
 							_dir.inform_falsepositive_dirty(address);
@@ -57,15 +56,15 @@ int main() {
 			// STORE 
 			else if(type == "RDINV64B") {
 				
+				usage();
 				// Is the address present in the GPU - dirty or clean?
 				if (_dir.exists(address)) {
-					usage();
 					if(!_gpu.exists(address)) {
 						false_positive();
 						_dir.inform_falsepositive_exists(address);
 					} else {
 						_gpu.remove(address);
-						_dir.remove(address);
+						_dir.remove(address, false);
 					}
 				}
 			}
@@ -109,5 +108,8 @@ int main() {
 		}
 	}
 	
+	_dir.print();
+	cout << "NUMBER OF DIRECTORY LINES: \t" <<_dir.size() << endl;
+	cout << consult<< " " << fps << " " << fps*1.0/consult << endl;	
 	return 0;
 }
