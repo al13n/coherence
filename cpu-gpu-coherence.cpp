@@ -128,10 +128,10 @@ int main() {
 		}
 	}
 	
-	//_dir.print();
+	_dir.print();
 	cout << "ERRORS: " << errors << endl;
 	cout << "CPU LOADS: " << cpu_loads << " CPU STORES: " << cpu_stores << " GPU LOADS: " << gpu_loads << " GPU STORES: " << gpu_stores << endl;
-	cout << "SIZE OF DIRECTORY: \t" << _dir.size()*8 << " bytes" << endl;
+	cout << "SIZE OF DIRECTORY: \t" << _dir.size()*8 << " bytes " << (_dir.size()*8)/1024 << " kilobytes" << endl;
 	cout << consult<< " " << fps << " " << fps*1.0/consult << endl;	
 	return 0;
 }

@@ -5,7 +5,8 @@
 #include <algorithm>
 
 #define CLOSEST_RANGE_INSERT_LIMIT 16
-
+#define MAX_SIZE_DIRECTORY 32 /*kilobytes*/
+#define MAX_AGE_LIMIT 1000
 /*
  *	Typename 'T' should have the following api's:
  *		- insert(unsigned long int key) -> pair<key, flag> : bool flag = success(?) 
@@ -70,8 +71,8 @@ private:
 			total_size += address_dirty.size();
 			total_size += false_positive_exist.size();
 			total_size += false_positive_dirty.size();
-			//total size * 2 = size of rangedata
-			return (total_size<<1);
+			//total size * 2 = size of rangedata * 8 bytes UL 
+			return (total_size<<1)<<3;
 		}
 		
 		void resetline() {
@@ -291,19 +292,42 @@ private:
 	};
 	
 	std::vector<lrulines> dir_mem;
-
+	
+	bool resetline() {
+		int mx = 0;
+		int pos = -1;
+		for (int i = 0; i < dir_mem.size(); i++) {
+			if (dir_mem[i].age > mx) {
+				mx = dir_mem[i].age;
+				pos = i;
+			}
+		}
+		if ( pos != -1) {
+			dir_mem.erase(dir_mem.begin() + pos);	
+			return true;
+		}
+		return false;
+	}
+	bool age_exceed() {
+		for(auto idx: dir_mem) {
+			if(idx.age > MAX_AGE_LIMIT) {
+				return true;
+			}
+		}
+		return false;
+	}
 public:
 	dir_simulator(){}
 
 	UL size() { 
-		cout << "Number of directory lines: " << dir_mem.size() << endl;
+		//cout << "Number of directory lines: " << dir_mem.size() << endl;
 		UL total_size = 0;
 		for(auto idx: dir_mem) {
-			total_size += idx.data.size() + 1;
+			total_size += idx.data.size() + 4;
 		}
 		return total_size;
 	}
-
+	
 	bool exists(const UL cpu_address) {
 		UL gpu_address = __getaddress_cache__(cpu_address);
 		bool flag = false;
@@ -338,6 +362,11 @@ public:
 			dir_mem.push_back(newlruline);
 			flag = true;
 		}
+		
+		if ( age_exceed() || (size()*8)/1024 > MAX_SIZE_DIRECTORY) {
+			resetline();
+		}
+		
 		return flag;
 	}
 
@@ -356,6 +385,10 @@ public:
 			}
 		}
 		
+		if ( age_exceed() || (size())/1024 > MAX_SIZE_DIRECTORY) {
+			resetline();
+		}
+
 		return flag;
 	}
 
@@ -370,6 +403,10 @@ public:
 				idx.age++;
 			}
 		}
+		
+		if ( age_exceed() || (size())/1024 > MAX_SIZE_DIRECTORY) {
+			resetline();
+		}
 		return flag;
 	}
 	
@@ -383,6 +420,9 @@ public:
 			} else {
 				idx.age++;
 			}
+		}
+		if ( age_exceed() || (size())/1024 > MAX_SIZE_DIRECTORY) {
+			resetline();
 		}
 		return flag;
 	}
@@ -400,6 +440,7 @@ public:
 				idx.age++;
 			}
 		}
+
 		return flag;
 	}
 	
@@ -414,6 +455,9 @@ public:
 				idx.age++;
 			}
 		}
+		if ( age_exceed() || (size())/1024 > MAX_SIZE_DIRECTORY) {
+			resetline();
+		}
 		return flag;
 	}
 	
@@ -427,6 +471,9 @@ public:
 			} else {
 				idx.age++;
 			}
+		}
+		if ( age_exceed() || (size())/1024 > MAX_SIZE_DIRECTORY) {
+			resetline();
 		}
 		return flag;
 	}
