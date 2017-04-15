@@ -25,7 +25,7 @@ public:
 	void remove(const UL);
 	void insert(const UL);
 	UL getaddress_replace(const UL);
-	
+	bool inform_clear(vector<rangedata> &);	
 };
 
 bool gpu_simulator::exists(const UL cpu_address) {
@@ -79,5 +79,18 @@ void gpu_simulator::insert(const UL cpu_address) {
 UL gpu_simulator::getaddress_replace(const UL cpu_address) {
 	pair<UL, UL> _addresstag = __getaddresstagpair_gpu__(cpu_address);
 	return __makeaddress_cache__(_addresstag.first, gpu_mem[_addresstag.first].tag);
+}
+
+bool gpu_simulator::inform_clear(vector<rangedata> &clear_addresses) {
+	UL cnt = 0;
+	for(auto idx: clear_addresses) {
+		for(UL i = idx.start; i <= idx.end; i++){
+			UL address = __getaddress_gpu_informclear__(i);
+			gpu_mem[address] = {0, 0, 0};
+			cnt++;
+		}
+	}
+	
+	return true;
 }
 #endif

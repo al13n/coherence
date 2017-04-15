@@ -4,9 +4,9 @@
 #include <vector>
 #include <algorithm>
 
-#define CLOSEST_RANGE_INSERT_LIMIT 16
-#define MAX_SIZE_DIRECTORY 32 /*kilobytes*/
-#define MAX_AGE_LIMIT 1000
+#define CLOSEST_RANGE_INSERT_LIMIT 16 
+#define MAX_SIZE_DIRECTORY 64 /*kilobytes*/
+#define MAX_AGE_LIMIT 100
 /*
  *	Typename 'T' should have the following api's:
  *		- insert(unsigned long int key) -> pair<key, flag> : bool flag = success(?) 
@@ -18,47 +18,6 @@
  */
 class dir_simulator {
 private:
-	struct rangedata {
-		UL start;
-		UL end;
-		
-		rangedata(UL s, UL e):start(s),end(e) {
-		}
-	
-		bool findinrange(const UL find_val) {
-			return find_val <= end && find_val >= start;
-		}
-	
-		bool addtorange(const UL insert_val) {
-			if ( !(	
-				findinrange(insert_val) 
-				|| ((insert_val+1) != 0	&&	findinrange(insert_val+1)) 
-				|| (insert_val 	   != 0	&&	findinrange(insert_val-1))
-			      ) 
-			) {
-				return false;
-			}
-			
-			if (insert_val < start) {
-				start = insert_val;
-			}
-			
-			if (insert_val > end) {
-				end = insert_val;
-			}
-			
-			return true;
-		}
-	
-		bool operator < (const rangedata x) const {
-			return end < x.start;
-		}
-		
-		void print() {
-			cout << "START:\t" << start << " " << "END:\t" << end << endl;
-		}
-	};
-
 	struct line {
 		std::vector<rangedata> address_load; // Keep them in order
 		std::vector<rangedata> address_dirty; // Keep them in order
@@ -93,7 +52,9 @@ private:
 			return false;
 		}
 		
-		bool insertinvector(vector<rangedata> &vec, const UL &address) {
+		bool insertinvector(vector<rangedata> &vec, const UL &address, bool isaccurate) {
+			UL closeness = CLOSEST_RANGE_INSERT_LIMIT + 1;
+			int pos = -1;
 			for (int i = 0; i < vec.size(); i++) {
 				if (vec[i].addtorange(address)) {
 					if (i > 0 && vec[i-1].end == vec[i].start) {
@@ -106,14 +67,31 @@ private:
 						}
 					}
 					return true;
+				} else {
+					if (!isaccurate) {
+						UL dist1 = abs(vec[i].start - address);
+						UL dist2 = abs(vec[i].end - address);
+						UL mn = min(mn,  min(dist1, dist2));
+						if (closeness > mn) {
+							closeness = mn;
+							pos = i;
+						}
+					}
 				}
 			}
 			
-			// add point range
-			rangedata newrange(address, address);
-			vec.push_back(newrange);
-			std::sort(vec.begin(), vec.end());
-			return true;
+			if (!isaccurate && closeness <= CLOSEST_RANGE_INSERT_LIMIT) {
+				vec[pos].addoutlier(address);
+				return true;
+			} else {
+			
+				// add point range
+				rangedata newrange(address, address);
+				vec.push_back(newrange);
+				std::sort(vec.begin(), vec.end());
+				return true;
+			}
+			return false;
 		}
 	
 		bool removefromvector(vector<rangedata> &vec, const UL &address) {
@@ -196,7 +174,7 @@ private:
 					removefromvector(false_positive_dirty, address);
 				}
 				// add to dirty vector
-				insertinvector(address_dirty, address);
+				insertinvector(address_dirty, address, false);
 				return true;
 			}
 			return false;
@@ -204,7 +182,7 @@ private:
 		
 		bool insert(const UL address) {
 			if (!existsinvector(address_load, address)) {
-				return insertinvector(address_load, address);
+				return insertinvector(address_load, address, false);
 			}
 			return false;
 		}
@@ -224,7 +202,7 @@ private:
 			if (existsinvector(address_load, address)) {
 				// Optional to remove from dirty vector
 				// removedirty(address);
-				insertinvector(false_positive_dirty, address);
+				insertinvector(false_positive_dirty, address, true);
 				print();
 				return true;
 			}
@@ -235,7 +213,7 @@ private:
 			if (existsinvector(address_load, address)) {
 				// Optional to remove from address_load vector
 				// removefromvector(address_load, address);
-				insertinvector(false_positive_exist, address);
+				insertinvector(false_positive_exist, address, true);
 				print();
 				return true;
 			}
@@ -264,20 +242,20 @@ private:
 
 		void print() {
 			cout << "----------------------------------------------\n";
-			cout << "address_load ranges:\n";
+			cout << "address_load ranges: " << address_load.size() << "(size)\n";
 			for(auto idx: address_load) {
 				idx.print();
 			}
 			
-			cout << "address_dirty ranges:\n";
+			cout << "address_dirty ranges: " << address_dirty.size() << "(size)\n";
 			for(auto idx: address_dirty) {
 				idx.print();
 			}
-			cout << "false_positive_exist ranges:\n";
+			cout << "false_positive_exist ranges: " << false_positive_exist.size() << "(size)\n";
 			for(auto idx: false_positive_exist) {
 				idx.print();
 			}
-			cout << "false_positive_dirty ranges:\n";
+			cout << "false_positive_dirty ranges: " << false_positive_dirty.size() << "(size)\n";
 			for(auto idx: false_positive_dirty) {
 				idx.print();
 			}
@@ -294,7 +272,7 @@ private:
 	std::vector<lrulines> dir_mem;
 	
 	bool resetline() {
-		int mx = 0;
+		int mx = -1;
 		int pos = -1;
 		for (int i = 0; i < dir_mem.size(); i++) {
 			if (dir_mem[i].age > mx) {
@@ -303,28 +281,43 @@ private:
 			}
 		}
 		if ( pos != -1) {
+			gpu->inform_clear(dir_mem[pos].data.address_load);
 			dir_mem.erase(dir_mem.begin() + pos);	
 			return true;
 		}
 		return false;
 	}
-	bool age_exceed() {
-		for(auto idx: dir_mem) {
-			if(idx.age > MAX_AGE_LIMIT) {
-				return true;
-			}
-		}
-		return false;
-	}
-public:
-	dir_simulator(){}
 
+	void shouldpurge() {
+		if ( age_exceed || (size()*8)/1024 > MAX_SIZE_DIRECTORY) {
+			age_exceed = false;
+			resetline();
+		}
+	}
+	
+	gpu_simulator* gpu;
+	bool age_exceed;
+	UL max_sz;
+public:
+	dir_simulator(gpu_simulator* _gpu): age_exceed(false), max_sz(0){
+		gpu = _gpu;
+	}
+	
+	UL numberoflines() {
+		return dir_mem.size();
+	}
+	
+	UL get_max_size() {
+		return max_sz;
+	}
+	
 	UL size() { 
 		//cout << "Number of directory lines: " << dir_mem.size() << endl;
 		UL total_size = 0;
 		for(auto idx: dir_mem) {
 			total_size += idx.data.size() + 4;
 		}
+		if (total_size > max_sz) max_sz = total_size;
 		return total_size;
 	}
 	
@@ -337,6 +330,8 @@ public:
 				idx.age = 0;
 			} else {
 				idx.age++;
+				if(idx.age > MAX_AGE_LIMIT)
+					age_exceed = true;
 			}
 		}
 		return flag;
@@ -345,17 +340,23 @@ public:
 	bool insert(const UL cpu_address) {
 		UL gpu_address = __getaddress_cache__(cpu_address);
 		bool flag = false;
-		for (auto &idx: dir_mem) {
-			if (!flag && idx.data.closest(gpu_address) <= CLOSEST_RANGE_INSERT_LIMIT) {
-				idx.data.insert(gpu_address);
-				idx.age = 0;
-				flag = true;
-			} else {
-				idx.age++;	
+		UL mn = CLOSEST_RANGE_INSERT_LIMIT + 1;
+		int pos = -1;
+		for (int i = 0; i < dir_mem.size(); i++) {
+			UL closeness = dir_mem[i].data.closest(gpu_address);
+			if (closeness <= CLOSEST_RANGE_INSERT_LIMIT) {
+				if (mn > closeness) {
+					pos = i;
+					mn = closeness;
+				}
 			}
 		}
 
-		if (!flag) {
+		if (pos != -1) {
+			dir_mem[pos].data.insert(gpu_address);
+			dir_mem[pos].age = 0;
+			flag = true;
+		} else {
 			lrulines newlruline;
 			newlruline.age = 0;
 			newlruline.data.insert(gpu_address);
@@ -363,10 +364,7 @@ public:
 			flag = true;
 		}
 		
-		if ( age_exceed() || (size()*8)/1024 > MAX_SIZE_DIRECTORY) {
-			resetline();
-		}
-		
+		shouldpurge();	
 		return flag;
 	}
 
@@ -382,13 +380,12 @@ public:
 				idx.age = 0;
 			} else {
 				idx.age++;
+				if(idx.age > MAX_AGE_LIMIT)
+					age_exceed = true;
 			}
 		}
 		
-		if ( age_exceed() || (size())/1024 > MAX_SIZE_DIRECTORY) {
-			resetline();
-		}
-
+		shouldpurge();
 		return flag;
 	}
 
@@ -401,12 +398,12 @@ public:
 				idx.age = 0;
 			} else {
 				idx.age++;
+				if(idx.age > MAX_AGE_LIMIT)
+					age_exceed = true;
 			}
 		}
 		
-		if ( age_exceed() || (size())/1024 > MAX_SIZE_DIRECTORY) {
-			resetline();
-		}
+		shouldpurge();
 		return flag;
 	}
 	
@@ -419,11 +416,11 @@ public:
 				flag = true;
 			} else {
 				idx.age++;
+				if(idx.age > MAX_AGE_LIMIT)
+					age_exceed = true;
 			}
 		}
-		if ( age_exceed() || (size())/1024 > MAX_SIZE_DIRECTORY) {
-			resetline();
-		}
+		shouldpurge();
 		return flag;
 	}
 
@@ -438,6 +435,8 @@ public:
 				once = true;
 			} else {
 				idx.age++;
+				if(idx.age > MAX_AGE_LIMIT)
+					age_exceed = true;
 			}
 		}
 
@@ -453,11 +452,19 @@ public:
 				flag = true;
 			} else {
 				idx.age++;
+				if(idx.age > MAX_AGE_LIMIT)
+					age_exceed = true;
 			}
 		}
-		if ( age_exceed() || (size())/1024 > MAX_SIZE_DIRECTORY) {
-			resetline();
+		if (!flag) {
+			lrulines newlruline;
+			newlruline.age = 0;
+			newlruline.data.insert(gpu_address);
+			newlruline.data.insertdirty(gpu_address);
+			dir_mem.push_back(newlruline);
+			flag = true;
 		}
+		shouldpurge();
 		return flag;
 	}
 	
@@ -470,11 +477,11 @@ public:
 				flag = true;
 			} else {
 				idx.age++;
+				if(idx.age > MAX_AGE_LIMIT)
+					age_exceed = true;
 			}
 		}
-		if ( age_exceed() || (size())/1024 > MAX_SIZE_DIRECTORY) {
-			resetline();
-		}
+		shouldpurge();
 		return flag;
 	}
 	
