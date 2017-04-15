@@ -181,5 +181,6 @@ int main() {
 	cout << "MAX SIZE OF DIRECTORY: " << _dir.get_max_size() << " bytes " << (_dir.get_max_size())/1024 << " kilobytes" << endl;
 	cout << "TIMES DIR ASKED: " << consult << " FALSE POSITIVE: " << fps << " (%)false_positives: " << (fps*100.0/consult) << endl;
 	cout << "NO FALSE POSITIVE: " << nofps << endl;
+	cout << "TOTAL DATA CLEARED DUE TO DIR CLEARANCE: " << _gpu.gettotal_data_cleared() << endl;
 	return 0;
 }
