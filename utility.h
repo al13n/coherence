@@ -67,7 +67,7 @@ struct rangedata {
 		
 		return true;
 	}
-	
+
 	bool addoutlier(const UL insert_val) {
 		if (start > insert_val) {
 			start = insert_val;

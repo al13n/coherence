@@ -1,12 +1,10 @@
 #ifndef __DIR_SIMULTOR_H__
 #define __DIR_SIMULATOR_H__
 #include "utility.h"
+#include "config.h"
 #include <vector>
 #include <algorithm>
 
-#define CLOSEST_RANGE_INSERT_LIMIT 16 
-#define MAX_SIZE_DIRECTORY 64 /*kilobytes*/
-#define MAX_AGE_LIMIT 100
 /*
  *	Typename 'T' should have the following api's:
  *		- insert(unsigned long int key) -> pair<key, flag> : bool flag = success(?) 
@@ -51,45 +49,66 @@ private:
 			}
 			return false;
 		}
-		
+	
+		bool exceeds_fullrangelimit(vector<rangedata> &vec, const UL &address) {
+			if (vec.size() != 0) {
+				UL s = vec[0].start;
+				if (s > address) {
+					s = address;
+				}
+				UL e = vec[vec.size()-1].end;
+				if(e < address) {
+					e = address;
+				}
+				return ((UL)(e - s + (UL)1) >= MAX_FULLRANGE_LIMIT);
+			}
+			return false;
+		}
+			
 		bool insertinvector(vector<rangedata> &vec, const UL &address, bool isaccurate) {
 			UL closeness = CLOSEST_RANGE_INSERT_LIMIT + 1;
 			int pos = -1;
-			for (int i = 0; i < vec.size(); i++) {
-				if (vec[i].addtorange(address)) {
-					if (i > 0 && vec[i-1].end == vec[i].start) {
-						vec[i-1].end = vec[i].end;
-						vec.erase(vec.begin() + i);
-					} else {
-						if (i < vec.size() && vec[i+1].start == vec[i].end) {
-							vec[i].end = vec[i+1].end;
-							vec.erase(vec.begin() + i+1);
+			
+			if (!exceeds_fullrangelimit(vec, address)) {
+				for (int i = 0; i < vec.size(); i++) {
+					if (vec[i].addtorange(address)) {
+						if (i > 0 
+						&& vec[i-1].end == vec[i].start 
+						) {
+							vec[i-1].end = vec[i].end;
+							vec.erase(vec.begin() + i);
+						} else {
+							if (i < vec.size() 
+							&& vec[i+1].start == vec[i].end
+							) {
+								vec[i].end = vec[i+1].end;
+								vec.erase(vec.begin() + i+1);
+							}
 						}
-					}
-					return true;
-				} else {
-					if (!isaccurate) {
-						UL dist1 = abs(vec[i].start - address);
-						UL dist2 = abs(vec[i].end - address);
-						UL mn = min(mn,  min(dist1, dist2));
-						if (closeness > mn) {
-							closeness = mn;
-							pos = i;
+						return true;
+					} else {
+						if (!isaccurate) {
+							UL dist1 = abs(vec[i].start - address);
+							UL dist2 = abs(vec[i].end - address);
+							UL mn = min(mn,  min(dist1, dist2));
+							if (closeness > mn) {
+								closeness = mn;
+								pos = i;
+							}
 						}
 					}
 				}
-			}
 			
-			if (!isaccurate && closeness <= CLOSEST_RANGE_INSERT_LIMIT) {
-				vec[pos].addoutlier(address);
-				return true;
-			} else {
-			
-				// add point range
-				rangedata newrange(address, address);
-				vec.push_back(newrange);
-				std::sort(vec.begin(), vec.end());
-				return true;
+				if (!isaccurate && pos != -1 && closeness <= CLOSEST_RANGE_INSERT_LIMIT) {
+					vec[pos].addoutlier(address);
+					return true;
+				} else {
+					// add point range
+					rangedata newrange(address, address);
+					vec.push_back(newrange);
+					std::sort(vec.begin(), vec.end());
+					return true;
+				}
 			}
 			return false;
 		}
@@ -117,8 +136,8 @@ private:
 					}
 				}
 				else {
-					int s = vec[pos].start;
-					int e = vec[pos].end;
+					UL s = vec[pos].start;
+					UL e = vec[pos].end;
 					vec.erase(vec.begin() + pos);
 					if (address > s) {
 						rangedata newrange(s, address-1);
@@ -182,9 +201,9 @@ private:
 		
 		bool insert(const UL address) {
 			if (!existsinvector(address_load, address)) {
-				return insertinvector(address_load, address, false);
+				return insertinvector(address_load, address, true);
 			}
-			return false;
+			return true;
 		}
 		
 		bool remove(const UL address) {
@@ -195,7 +214,7 @@ private:
 				removefromvector(false_positive_exist, address);
 				return true;
 			}
-			return false;
+			return true;
 		}
 
 		bool inform_falsepositive_dirty(const UL address) {
@@ -219,8 +238,8 @@ private:
 			}
 			return false;
 		}
-		
-		int closest(const UL address) {
+	/*	
+		UL closest(const UL address) {
 			if (address_load.size() != 0) {
 				UL mn = CLOSEST_RANGE_INSERT_LIMIT + 1;
 				for (auto idx: address_load) {
@@ -234,12 +253,12 @@ private:
 				}
 				return mn;
 			}		
-			/* #region: make it ready for new range insertion */
+			// #region: make it ready for new range insertion
 			resetline();
-			/* #endregion	*/
+			// #endregion
 			return 0;
 		}
-
+	*/
 		void print() {
 			cout << "----------------------------------------------\n";
 			cout << "address_load ranges: " << address_load.size() << "(size)\n";
@@ -267,6 +286,10 @@ private:
 	struct lrulines {
 		int age;
 		line data;
+		
+		bool operator < (const lrulines& b) const {
+			return age <= b.age;
+		}
 	};
 	
 	std::vector<lrulines> dir_mem;
@@ -287,12 +310,13 @@ private:
 		}
 		return false;
 	}
-
+	
 	void shouldpurge() {
-		if ( age_exceed || (size()*8)/1024 > MAX_SIZE_DIRECTORY) {
+		if ( age_exceed || (size())/1024 > MAX_SIZE_DIRECTORY) {
 			age_exceed = false;
 			resetline();
 		}
+		std::sort(dir_mem.begin(), dir_mem.end());
 	}
 	
 	gpu_simulator* gpu;
@@ -340,8 +364,7 @@ public:
 	bool insert(const UL cpu_address) {
 		UL gpu_address = __getaddress_cache__(cpu_address);
 		bool flag = false;
-		UL mn = CLOSEST_RANGE_INSERT_LIMIT + 1;
-		int pos = -1;
+		/*
 		for (int i = 0; i < dir_mem.size(); i++) {
 			UL closeness = dir_mem[i].data.closest(gpu_address);
 			if (closeness <= CLOSEST_RANGE_INSERT_LIMIT) {
@@ -350,21 +373,27 @@ public:
 					mn = closeness;
 				}
 			}
+			dir_mem[i].age++;
 		}
-
-		if (pos != -1) {
-			dir_mem[pos].data.insert(gpu_address);
-			dir_mem[pos].age = 0;
-			flag = true;
-		} else {
-			lrulines newlruline;
-			newlruline.age = 0;
-			newlruline.data.insert(gpu_address);
-			dir_mem.push_back(newlruline);
-			flag = true;
+		*/
+		
+		for (auto &idx: dir_mem) {
+			if (!flag && idx.data.insert(gpu_address)) {
+				idx.age = 0;
+				flag = true;
+			}
+			else
+				idx.age++;
 		}
 		
-		shouldpurge();	
+		if (!flag) {
+			lrulines newlruline;
+			newlruline.age = 0;
+			flag = newlruline.data.insert(gpu_address);
+			dir_mem.push_back(newlruline);
+		}
+		
+		shouldpurge();
 		return flag;
 	}
 

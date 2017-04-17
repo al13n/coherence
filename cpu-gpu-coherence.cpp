@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#include "config.h"
 #include "gpu-simulator.h"
 #include "dir-simulator.h"
 
@@ -42,7 +43,9 @@ int main() {
 	int pc = 0;
 	while (pc < instructions.size())
 	{
+		
 		instruction = instructions[pc++];
+		cout << "PROCESSING INSTRUCTION: " << pc << endl;
 		stringstream ss(instruction);
 		string type;
 		UL address;
@@ -181,6 +184,6 @@ int main() {
 	cout << "MAX SIZE OF DIRECTORY: " << _dir.get_max_size() << " bytes " << (_dir.get_max_size())/1024 << " kilobytes" << endl;
 	cout << "TIMES DIR ASKED: " << consult << " FALSE POSITIVE: " << fps << " (%)false_positives: " << (fps*100.0/consult) << endl;
 	cout << "NO FALSE POSITIVE: " << nofps << endl;
-	cout << "TOTAL DATA CLEARED DUE TO DIR CLEARANCE: " << _gpu.gettotal_data_cleared() << endl;
+	cout << "TOTAL DATA CLEARED DUE TO DIR CLEARANCE: " << _gpu.gettotal_data_cleared() << " bytes " << _gpu.gettotal_data_cleared()/1024 << " kilobytes" << endl;
 	return 0;
 }
