@@ -42,7 +42,11 @@ struct rangedata {
 	
 	rangedata(UL s, UL e):start(s),end(e) {
 	}
-
+	
+	UL getcoverage() {
+		return (UL)(end - start + (UL)1);
+	}
+	
 	bool findinrange(const UL find_val) {
 		return find_val <= end && find_val >= start;
 	}

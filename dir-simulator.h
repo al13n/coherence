@@ -178,10 +178,7 @@ private:
 		}
 
 		bool removedirty(const UL address) {
-			if (removefromvector(address_dirty, address)) {
-				return true;
-			}
-			return false;
+			return removefromvector(address_dirty, address);
 		}
 
 		bool insertdirty(const UL address) {
@@ -203,6 +200,9 @@ private:
 			if (!existsinvector(address_load, address)) {
 				return insertinvector(address_load, address, true);
 			}
+			if (existsinvector(false_positive_exist, address)) {
+				removefromvector(false_positive_exist, address);
+			}
 			return true;
 		}
 		
@@ -222,7 +222,7 @@ private:
 				// Optional to remove from dirty vector
 				// removedirty(address);
 				insertinvector(false_positive_dirty, address, true);
-				print();
+				// print();
 				return true;
 			}
 			return false;
@@ -233,7 +233,7 @@ private:
 				// Optional to remove from address_load vector
 				// removefromvector(address_load, address);
 				insertinvector(false_positive_exist, address, true);
-				print();
+				// print();
 				return true;
 			}
 			return false;
@@ -312,11 +312,11 @@ private:
 	}
 	
 	void shouldpurge() {
-		if ( age_exceed || (size())/1024 > MAX_SIZE_DIRECTORY) {
+		if (age_exceed || (size() > (UL)(MAX_SIZE_DIRECTORY*1024))) {
 			age_exceed = false;
 			resetline();
 		}
-		std::sort(dir_mem.begin(), dir_mem.end());
+		//std::sort(dir_mem.begin(), dir_mem.end());
 	}
 	
 	gpu_simulator* gpu;
@@ -364,18 +364,6 @@ public:
 	bool insert(const UL cpu_address) {
 		UL gpu_address = __getaddress_cache__(cpu_address);
 		bool flag = false;
-		/*
-		for (int i = 0; i < dir_mem.size(); i++) {
-			UL closeness = dir_mem[i].data.closest(gpu_address);
-			if (closeness <= CLOSEST_RANGE_INSERT_LIMIT) {
-				if (mn > closeness) {
-					pos = i;
-					mn = closeness;
-				}
-			}
-			dir_mem[i].age++;
-		}
-		*/
 		
 		for (auto &idx: dir_mem) {
 			if (!flag && idx.data.insert(gpu_address)) {

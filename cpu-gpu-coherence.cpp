@@ -1,7 +1,8 @@
 #include <bits/stdc++.h>
 #include "config.h"
 #include "gpu-simulator.h"
-#include "dir-simulator.h"
+//#include "dir-simulator.h"
+#include "compartments.h"
 
 int fps = 0;
 int consult = 0;
@@ -24,27 +25,40 @@ int main() {
 	gpu_simulator _gpu;
 	dir_simulator _dir(&_gpu);
 	
-	int cpu_loads = 0;
-	int cpu_stores = 0;
-	int gpu_loads = 0;
-	int gpu_stores = 0;
-	int ask_dir_exists = 0;
-	int ask_dir_dirty = 0;
-	int dir_dirty[2] = {0, 0};
-	int dir_exists[2] = {0, 0};
-	int errors = 0;
+	UL cpu_loads = 0;
+	UL cpu_stores = 0;
+	UL gpu_loads = 0;
+	UL gpu_stores = 0;
+	UL ask_dir_exists = 0;
+	UL ask_dir_dirty = 0;
+	UL dir_dirty[2] = {0, 0};
+	UL dir_exists[2] = {0, 0};
+	UL errors = 0;
+	UL gpu_misses = 0;
 	
+	ifstream configfile("config.h");
+	string configcontent = "";
+	string tmp;
+	while (!configfile.eof()) {
+		getline(configfile, tmp);
+		configcontent = configcontent + tmp  + "\n";
+	}
+
+	/*
 	vector<string> instructions;
 	while (getline(cin, instruction)) {
 		instructions.push_back(instruction);
 	}
 	
 	cout << "COMPLETED READING INSTRUCTIONS" << endl;
-	int pc = 0;
-	while (pc < instructions.size())
+	*/
+	UL pc = 0;
+	//while (pc < instructions.size())
+	while (getline(cin, instruction))
 	{
 		
-		instruction = instructions[pc++];
+		//instruction = instructions[pc++];
+		pc++;
 		cout << "PROCESSING INSTRUCTION: " << pc << endl;
 		stringstream ss(instruction);
 		string type;
@@ -138,7 +152,7 @@ int main() {
 		else {
 			// LOAD
 			if (type == "MEMRD64B") {
-				gpu_loads++;	
+				gpu_loads++;
 				// Is this address present on the GPU? - dont care
 				
 				// Is this address being replaced on the GPU? - update directory
@@ -148,6 +162,7 @@ int main() {
 				}
 				
 				_dir.insert(address);
+				if (!_gpu.exists(address)) gpu_misses++;
 				_gpu.insert(address);
 			}
 			// STORE
@@ -158,6 +173,7 @@ int main() {
 					UL r_address = _gpu.getaddress_replace(address);
 					_dir.remove(r_address, true);
 				}
+				if (!_gpu.exists(address)) gpu_misses++;
 				_gpu.insert(address);
 				_gpu.setdirtybit(address);
 				_dir.insert(address);
@@ -172,6 +188,9 @@ int main() {
 	}
 	
 	_dir.print();
+	cout << "\n------------------------CONFIG-----------------------------------------------\n";
+	cout << configcontent << endl;
+	cout << "-----------------------------------------------------------------------------\n\n";
 	
 	cout << "ERRORS: " << errors << endl;
 	cout << "CPU LOADS: " << cpu_loads << " CPU STORES: " << cpu_stores << " GPU LOADS: " << gpu_loads << " GPU STORES: " << gpu_stores << endl;
@@ -184,6 +203,10 @@ int main() {
 	cout << "MAX SIZE OF DIRECTORY: " << _dir.get_max_size() << " bytes " << (_dir.get_max_size())/1024 << " kilobytes" << endl;
 	cout << "TIMES DIR ASKED: " << consult << " FALSE POSITIVE: " << fps << " (%)false_positives: " << (fps*100.0/consult) << endl;
 	cout << "NO FALSE POSITIVE: " << nofps << endl;
-	cout << "TOTAL DATA CLEARED DUE TO DIR CLEARANCE: " << _gpu.gettotal_data_cleared() << " bytes " << _gpu.gettotal_data_cleared()/1024 << " kilobytes" << endl;
+	cout << "TOTAL DATA CLEARED DUE TO DIR CLEARANCE: " << _gpu.gettotal_data_cleared() << " addresses " << _gpu.gettotal_data_cleared()*64 << " (bytes) " << (_gpu.gettotal_data_cleared()*64)/1024 << " (kb)" << endl;
+	cout << "GPU MISSES: " << gpu_misses << endl;
+	cout << "AVG RANGE COVERAGE: " << _dir.get_avg_rangecoverage() << endl;
+	cout << "MAX RANGE COVERAGE: " << _dir.get_max_rangecoverage() << endl;
+	cout << "ENTRY MAX RANGE COVERAGE: " << _dir.get_entry_max_rangecoverage() << endl;
 	return 0;
 }
