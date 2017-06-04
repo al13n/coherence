@@ -21,6 +21,7 @@ int no_fps() {
 }
 
 int main() {
+	srand(time(NULL));
 	string instruction;
 	gpu_simulator _gpu;
 	dir_simulator _dir(&_gpu);

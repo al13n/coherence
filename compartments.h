@@ -191,26 +191,27 @@ private:
 			
 			UL start;
 			UL end;
-			bool ret = false;
 			if (address_exist.size() > 1) {
-				start = address_exist[0].start;
+				start = address_exist[ address_exist.size() - 2 ].start;
 				end = address_exist[ address_exist.size() - 1 ].end;
-				address_exist.clear();
+				address_exist.pop_back();
+				address_exist.pop_back();
 				rangedata newrange(start, end);
 				address_exist.push_back(newrange);
-				ret = true;
+				return true;
 			}
 			
 			if (address_dirty.size() > 1) {
-				start = address_dirty[0].start;
+				start = address_dirty[ address_dirty.size() - 2 ].start;
 				end = address_dirty[ address_dirty.size() - 1 ].end;
-				address_dirty.clear();
+				address_dirty.pop_back();
+				address_dirty.pop_back();
 				rangedata newrange(start, end);
 				address_dirty.push_back(newrange);
-				ret = true;
+				return true;
 			}
 
-			return ret;
+			return false;
 		}
 		
 		void print() {
