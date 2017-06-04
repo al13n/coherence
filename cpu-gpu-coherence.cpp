@@ -186,6 +186,8 @@ int main() {
 				// writeback
 			}
 		}
+		
+		assert(errors == 0);
 	}
 	
 	_dir.print();

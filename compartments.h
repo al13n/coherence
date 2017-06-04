@@ -184,34 +184,28 @@ private:
 			return res.sum;
 		}
 		
-		bool reduce() {
+		UL reduce(const UL &req_reduction_size) {
 			if (address_exist.size() <= 1 && address_dirty.size() <= 1) {
-				return false;
+				return 0;
 			}
 			
-			UL start;
 			UL end;
-			if (address_exist.size() > 1) {
-				start = address_exist[ address_exist.size() - 2 ].start;
+			UL size_reduced = 0;
+			while (req_reduction_size > size_reduced && address_exist.size() > 1) {
 				end = address_exist[ address_exist.size() - 1 ].end;
 				address_exist.pop_back();
-				address_exist.pop_back();
-				rangedata newrange(start, end);
-				address_exist.push_back(newrange);
-				return true;
+				size_reduced += sizeof(rangedata);
+				address_exist[ address_exist.size() - 1 ].end = end;
 			}
 			
-			if (address_dirty.size() > 1) {
-				start = address_dirty[ address_dirty.size() - 2 ].start;
+			while (req_reduction_size > size_reduced && address_dirty.size() > 1) {
 				end = address_dirty[ address_dirty.size() - 1 ].end;
 				address_dirty.pop_back();
-				address_dirty.pop_back();
-				rangedata newrange(start, end);
-				address_dirty.push_back(newrange);
-				return true;
+				size_reduced += sizeof(rangedata);
+				address_dirty[ address_dirty.size() - 1 ].end = end;
 			}
 
-			return false;
+			return size_reduced;
 		}
 		
 		void print() {
@@ -296,21 +290,25 @@ private:
 	
 	bool shouldpurge() {
 		while (size() > (UL)(MAX_SIZE_DIRECTORY*1024)) {
+			UL req_size_reduction = size() - (UL)(MAX_SIZE_DIRECTORY*1024);
+
 			bool should_evict = true;
 			auto tmp_ptr = tail_dir_mem;
 			UL prev_sz;
-			
+			UL total_decrement_size = 0;
+
 			for (int idx = 0; idx < ((c_p.size()*MAX_PERCENT_REDUCE_BEFORE_EVICT)/100) && tmp_ptr != nullptr; idx++) {
-				prev_sz = tmp_ptr->size();
-				if (tmp_ptr->reduce()) {
-					UL new_sz = tmp_ptr->size();
-					sz -= prev_sz;
-					sz += new_sz;
+				UL reduced_size = tmp_ptr->reduce(req_size_reduction);
+				req_size_reduction -= reduced_size;
+				total_decrement_size += reduced_size;
+				if (req_size_reduction <= 0) {
 					should_evict = false;
 					break;
 				}
 				tmp_ptr = tmp_ptr->next;
 			}
+			
+			sz -= total_decrement_size;
 			
 			if (should_evict && tail_dir_mem != nullptr) {
 				if (dir_mem == tail_dir_mem) dir_mem = nullptr;
