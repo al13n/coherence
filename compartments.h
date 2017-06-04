@@ -128,7 +128,7 @@ private:
 			return false;
 		}
 
-		compartment(UL gpu_address): previous{nullptr}, next{nullptr} {
+		compartment(UL gpu_address): previous{nullptr}, next{nullptr}{
 			address_exist.clear();
 			address_dirty.clear();
 			insertinvector(address_exist, gpu_address, IS_ACCURATE_ADDRESS_EXIST);
@@ -182,6 +182,35 @@ private:
 			
 			coverage res = for_each (address_exist.begin(), address_exist.end(), coverage());
 			return res.sum;
+		}
+		
+		bool reduce() {
+			if (address_exist.size() <= 1 && address_dirty.size() <= 1) {
+				return false;
+			}
+			
+			UL start;
+			UL end;
+			bool ret = false;
+			if (address_exist.size() > 1) {
+				start = address_exist[0].start;
+				end = address_exist[ address_exist.size() - 1 ].end;
+				address_exist.clear();
+				rangedata newrange(start, end);
+				address_exist.push_back(newrange);
+				ret = true;
+			}
+			
+			if (address_dirty.size() > 1) {
+				start = address_dirty[0].start;
+				end = address_dirty[ address_dirty.size() - 1 ].end;
+				address_dirty.clear();
+				rangedata newrange(start, end);
+				address_dirty.push_back(newrange);
+				ret = true;
+			}
+
+			return ret;
 		}
 		
 		void print() {
@@ -266,7 +295,23 @@ private:
 	
 	bool shouldpurge() {
 		while (size() > (UL)(MAX_SIZE_DIRECTORY*1024)) {
-			if (tail_dir_mem != nullptr) {
+			bool should_evict = true;
+			auto tmp_ptr = tail_dir_mem;
+			UL prev_sz;
+			
+			for (int idx = 0; idx < ((c_p.size()*MAX_PERCENT_REDUCE_BEFORE_EVICT)/100) && tmp_ptr != nullptr; idx++) {
+				prev_sz = tmp_ptr->size();
+				if (tmp_ptr->reduce()) {
+					UL new_sz = tmp_ptr->size();
+					sz -= prev_sz;
+					sz += new_sz;
+					should_evict = false;
+					break;
+				}
+				tmp_ptr = tmp_ptr->next;
+			}
+			
+			if (should_evict && tail_dir_mem != nullptr) {
 				if (dir_mem == tail_dir_mem) dir_mem = nullptr;
 				if (!tail_dir_mem->address_exist.empty()) {
 					gpu->inform_clear(tail_dir_mem->address_exist);

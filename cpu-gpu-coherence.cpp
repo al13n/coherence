@@ -59,7 +59,7 @@ int main() {
 		
 		//instruction = instructions[pc++];
 		pc++;
-		cout << "PROCESSING INSTRUCTION: " << pc << endl;
+		if (pc%1000000 == 0) cout << "PROCESSING INSTRUCTION: " << pc << endl;
 		stringstream ss(instruction);
 		string type;
 		UL address;
