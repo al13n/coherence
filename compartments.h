@@ -10,13 +10,15 @@
 class dir_simulator {
 private:
 	class compartment {
+	private:
+		UL _rangecover;
 	public:
 		std::vector<rangedata> address_exist;
 		std::vector<rangedata> address_dirty;
 		
 		shared_ptr<compartment> previous;
 		shared_ptr<compartment> next;
-	
+		
 		~compartment() {
 			previous = next = nullptr;
 			address_exist.clear();
@@ -32,11 +34,28 @@ private:
 		}
 
 		bool existsinvector(vector<rangedata> & vec, const UL &check_address) {
-                        for (auto &idx: vec) {
+                        /*
+			for (auto &idx: vec) {
                                 if (idx.findinrange(check_address)) {
                                         return true;
                                 }
                         }
+			*/
+		
+			int start = 0;
+			int end = vec.size() - 1;
+			while (start <= end) {
+				int mid = (start+end)/2;
+				if (vec[mid].findinrange(check_address)) {
+					return true;
+				}
+				if (vec[mid].end > check_address) {
+					end = mid - 1;
+				} else {
+					start = mid + 1;
+				}
+			}
+			
                         return false;
                 }
 		
@@ -131,7 +150,9 @@ private:
 		compartment(UL gpu_address): previous{nullptr}, next{nullptr}{
 			address_exist.clear();
 			address_dirty.clear();
-			insertinvector(address_exist, gpu_address, IS_ACCURATE_ADDRESS_EXIST);
+			_rangecover = 0;
+			insert(gpu_address);
+			//insertinvector(address_exist, gpu_address, IS_ACCURATE_ADDRESS_EXIST);
 		}
 		
 		bool exists(const UL &address) {
@@ -139,10 +160,12 @@ private:
 		}
 			
 		bool insert(const UL &address) {
+			if (!exists(address)) _rangecover++;
 			return insertinvector(address_exist, address, IS_ACCURATE_ADDRESS_EXIST);
 		}
 	
 		bool remove(const UL &address) {
+			if (exists(address)) _rangecover--;
 			removefromvector(address_exist, address);
 			removefromvector(address_dirty, address);
 			return true;
@@ -174,6 +197,7 @@ private:
 		}
 		
 		UL getcoverage() {
+			/*
 			struct coverage {
 				UL sum = 0;
 				coverage(): sum{0} {}
@@ -182,20 +206,24 @@ private:
 			
 			coverage res = for_each (address_exist.begin(), address_exist.end(), coverage());
 			return res.sum;
+			*/
+			return _rangecover;
 		}
 		
 		UL reduce(const UL &req_reduction_size) {
 			if (address_exist.size() <= 1 && address_dirty.size() <= 1) {
 				return 0;
 			}
-			
 			UL end;
 			UL size_reduced = 0;
 			while (req_reduction_size > size_reduced && address_exist.size() > 1) {
+				_rangecover -= address_exist[ address_exist.size() - 1 ].getcoverage();
+				_rangecover -= address_exist[ address_exist.size() - 2 ].getcoverage();
 				end = address_exist[ address_exist.size() - 1 ].end;
 				address_exist.pop_back();
 				size_reduced += sizeof(rangedata);
 				address_exist[ address_exist.size() - 1 ].end = end;
+				_rangecover += address_exist[ address_exist.size() - 1 ].getcoverage();
 			}
 			
 			while (req_reduction_size > size_reduced && address_dirty.size() > 1) {

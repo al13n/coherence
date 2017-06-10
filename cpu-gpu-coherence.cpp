@@ -38,6 +38,7 @@ int main() {
 	UL gpu_misses = 0;
 	
 	ifstream configfile("config.h");
+	//ofstream missfile("gpumisses_1");
 	string configcontent = "";
 	string tmp;
 	while (!configfile.eof()) {
@@ -163,7 +164,10 @@ int main() {
 				}
 				
 				_dir.insert(address);
-				if (!_gpu.exists(address)) gpu_misses++;
+				if (!_gpu.exists(address)) {
+					//missfile << address << endl;
+					gpu_misses++;
+				}
 				_gpu.insert(address);
 			}
 			// STORE
@@ -174,7 +178,10 @@ int main() {
 					UL r_address = _gpu.getaddress_replace(address);
 					_dir.remove(r_address, true);
 				}
-				if (!_gpu.exists(address)) gpu_misses++;
+				if (!_gpu.exists(address)) {
+					//missfile << address << endl;
+					gpu_misses++;
+				}
 				_gpu.insert(address);
 				_gpu.setdirtybit(address);
 				_dir.insert(address);
