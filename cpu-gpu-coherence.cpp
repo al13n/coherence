@@ -218,5 +218,6 @@ int main() {
 	cout << "AVG RANGE COVERAGE: " << _dir.get_avg_rangecoverage() << endl;
 	cout << "MAX RANGE COVERAGE: " << _dir.get_max_rangecoverage() << endl;
 	cout << "ENTRY MAX RANGE COVERAGE: " << _dir.get_entry_max_rangecoverage() << endl;
+	cout << "NUMBER OF GPU EVICTIONS: " << _gpu.getnum_evictions() << endl;
 	return 0;
 }

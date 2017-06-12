@@ -13,14 +13,20 @@ private:
 	vector<data> gpu_mem;
 	UL mem_sz;
 	UL total_data_cleared;
+	UL num_evictions;
 public:	
-	gpu_simulator(): total_data_cleared(0) {
+	gpu_simulator(): total_data_cleared{0}, num_evictions{0} {
 		gpu_mem.resize((1<<(GPU_ADDRESS_LEN+1)), {0, 0, 0});	
 	}
 
 	UL gettotal_data_cleared(){
 		return total_data_cleared;
 	}
+
+	UL getnum_evictions() {
+		return num_evictions;
+	}
+	
 	bool exists(const UL);
 	bool isdirty(const UL);
 	bool isreplace(const UL);
@@ -86,6 +92,7 @@ UL gpu_simulator::getaddress_replace(const UL cpu_address) {
 }
 
 bool gpu_simulator::inform_clear(vector<rangedata> &clear_addresses) {
+	num_evictions++;
 	for(auto idx: clear_addresses) {
 		for(UL i = idx.start; i <= idx.end; i++){
 			UL address = __getaddress_gpu_informclear__(i);
