@@ -7,6 +7,8 @@
 #include <map>
 #include <limits>
 
+vector < pair<UL, bitset<SIZE_OF_COMPARTMENT> > > patterns;
+
 class dir_simulator {
 private:
 	class compartment {
@@ -250,7 +252,9 @@ private:
 		}
 	};
 	
-	map<UL, shared_ptr<compartment> > c_p;
+	unordered_map< UL, shared_ptr<compartment> > c_p;
+	unordered_map< bitset<SIZE_OF_COMPARTMENT>, UL > pattern_exist;
+	unordered_map< bitset<SIZE_OF_COMPARTMENT>, UL > pattern_dirty;
 	shared_ptr<compartment> dir_mem;
 	shared_ptr<compartment> tail_dir_mem;
 	gpu_simulator *gpu;
@@ -265,7 +269,7 @@ private:
 		return (address/SIZE_OF_COMPARTMENT);
 	}
 
-	bool deletefromlist(UL &key) {
+	bool deletefromlist(const UL &key) {
 		if (c_p.find(key) != c_p.end()) {
 			auto current = c_p[key];
 			if (dir_mem == current) {
@@ -292,7 +296,7 @@ private:
 		return false;
 	}
 	
-	bool deletefrommap(UL &key) {
+	bool deletefrommap(const UL &key) {
 		if (c_p.find(key) != c_p.end()) {
 			c_p.erase(c_p.find(key));
 			return true;
@@ -300,7 +304,7 @@ private:
 		return false;
 	}
 
-	bool removefromlistandmovetohead(UL &key) {
+	bool removefromlistandmovetohead(const UL &key) {
 		if (c_p.find(key) != c_p.end()) {
 			auto current = c_p[key];
 			deletefromlist(key);
@@ -401,7 +405,49 @@ public:
 		return entry_max_range_coverage;
 	}
 
-	bool exists(const UL cpu_address) {
+	void getexistpattern(const UL &key) {
+		bitset<SIZE_OF_COMPARTMENT> pattern;
+
+		if (c_p.find(key) != c_p.end()) {
+			for (int idx = 0; idx < c_p[key]->address_exist.size(); idx++) {
+				const auto &r = c_p[key]->address_exist[idx];
+				for (UL address = r.start; address <= r.end; address++) {
+					UL offset = address%SIZE_OF_COMPARTMENT;
+					pattern[offset] = 1;
+				}
+			}
+			
+			if (pattern_exist.find(pattern) != pattern_exist.end()) {
+				pattern_exist[pattern]++;
+			} else {
+				pattern_exist.insert(std::make_pair(pattern, 1));
+			}
+		
+		}
+	}
+	
+	void getdirtypattern(const UL& key) {
+		bitset<SIZE_OF_COMPARTMENT> pattern;
+
+		if (c_p.find(key) != c_p.end()) {
+			for (int idx = 0; idx < c_p[key]->address_dirty.size(); idx++) {
+				const auto &r = c_p[key]->address_dirty[idx];
+				for (UL address = r.start; address <= r.end; address++) {
+					UL offset = address%SIZE_OF_COMPARTMENT;
+					pattern[offset] = 1;
+				}
+			}
+		
+			if (pattern_dirty.find(pattern) != pattern_dirty.end()) {
+				pattern_dirty[pattern]++;
+			} else {
+				pattern_dirty.insert(std::make_pair(pattern, 1));
+			}
+			
+		}
+	}
+	
+	bool exists(const UL &cpu_address) {
 		UL gpu_address = __getaddress_cache__(cpu_address);
 		bool flag = false;
 		
@@ -411,12 +457,12 @@ public:
 			flag = c_p[key]->exists(gpu_address);
 			removefromlistandmovetohead(key);	
 		}
-		
+		if (GET_PATTERN_ON_QUERY) getexistpattern(key);	
 		rangecoverage();
 		return flag;
 	}
 
-	bool insert(const UL cpu_address) {
+	bool insert(const UL &cpu_address) {
 		UL gpu_address = __getaddress_cache__(cpu_address);
 		bool flag = false;
 		UL key = getkey(gpu_address);
@@ -435,11 +481,12 @@ public:
 		}
 		
 		max_sz = max(size(), max_sz);
+		if (GET_PATTERN_ON_UPDATE) getexistpattern(key);
 		shouldpurge();
 		return flag;
 	}
 
-	bool remove(const UL address, bool isgpuaddress) {
+	bool remove(const UL &address, bool isgpuaddress) {
 		UL gpu_address = address;
 		if (!isgpuaddress) {
 			gpu_address = __getaddress_cache__(address);
@@ -460,14 +507,20 @@ public:
 		}
 		
 		max_sz = max(size(), max_sz);
+		
+		if (GET_PATTERN_ON_UPDATE) {
+			getexistpattern(key);
+			getdirtypattern(key);
+		}
+		
 		shouldpurge();
 		return flag;
 	}
 
-	bool inform_falsepositive_dirty(UL cpu_address) {
-		UL gpu_address = __getaddress_cache__(cpu_address);
+	bool inform_falsepositive_dirty(const UL &cpu_address) {
+		const UL gpu_address = __getaddress_cache__(cpu_address);
 		bool flag = false;
-		UL key = getkey(gpu_address);
+		const UL key = getkey(gpu_address);
 
 		if (c_p.find(key) != c_p.end()) {
 			UL prev_sz = c_p[key]->size();
@@ -481,15 +534,20 @@ public:
 			}
 		}
 		max_sz = max(size(), max_sz);
+		
+		if (GET_PATTERN_ON_UPDATE) {
+			getdirtypattern(key);
+		}
+		
 		shouldpurge();
 		
 		return flag;
 	}
 	
-	bool inform_falsepositive_exists(UL cpu_address) {
-		UL gpu_address = __getaddress_cache__(cpu_address);
+	bool inform_falsepositive_exists(const UL &cpu_address) {
+		const UL gpu_address = __getaddress_cache__(cpu_address);
 		bool flag = false;
-		UL key = getkey(gpu_address);
+		const UL key = getkey(gpu_address);
 
 		if (c_p.find(key) != c_p.end()) {
 			UL prev_sz = c_p[key]->size();
@@ -503,28 +561,38 @@ public:
 			}
 		}
 		max_sz = max(size(), max_sz);
+		
+		if (GET_PATTERN_ON_UPDATE) {
+			getexistpattern(key);
+		}
+		
 		shouldpurge();
 		
 		return flag;
 	}
 
-	bool isdirty(UL cpu_address) {
-		UL gpu_address = __getaddress_cache__(cpu_address);
+	bool isdirty(const UL cpu_address) {
+		const UL gpu_address = __getaddress_cache__(cpu_address);
 		bool flag = false;
-		UL key = getkey(gpu_address);
+		const UL key = getkey(gpu_address);
 
 		if (c_p.find(key) != c_p.end()) {
 			flag = c_p[key]->isdirty(gpu_address);
 			removefromlistandmovetohead(key);
 		}
+		
+		if (GET_PATTERN_ON_QUERY) {
+			getdirtypattern(key);
+		}
+			
 		rangecoverage();
 		return flag;
 	}
 	
-	bool markdirty(UL cpu_address) {
-		UL gpu_address = __getaddress_cache__(cpu_address);
+	bool markdirty(const UL cpu_address) {
+		const UL gpu_address = __getaddress_cache__(cpu_address);
 		bool flag = false;	
-		UL key = getkey(gpu_address);
+		const UL key = getkey(gpu_address);
 
 		if (c_p.find(key) != c_p.end()) {
 			UL prev_sz = c_p[key]->size();
@@ -540,15 +608,17 @@ public:
 			flag = true;
 		}
 		max_sz = max(size(), max_sz);
+		if (GET_PATTERN_ON_UPDATE) {
+			getdirtypattern(key);
+		}
 		shouldpurge();
-	
 		return flag;
 	}
 	
-	bool removedirty(UL cpu_address) {
-		UL gpu_address = __getaddress_cache__(cpu_address);
+	bool removedirty(const UL cpu_address) {
+		const UL gpu_address = __getaddress_cache__(cpu_address);
 		bool flag = false;	
-		UL key = getkey(gpu_address);
+		const UL key = getkey(gpu_address);
 
 		if (c_p.find(key) != c_p.end()) {
 			UL prev_sz = c_p[key]->size();
@@ -562,6 +632,9 @@ public:
 			}
 		}
 		max_sz = max(size(), max_sz);
+		if (GET_PATTERN_ON_UPDATE) {
+			getdirtypattern(key);
+		}
 		shouldpurge();
 		return flag;
 	}
@@ -575,6 +648,55 @@ public:
 			cout << "RANGE COVERAGE: " << idx->getcoverage() << endl;
 			cout << "###############################################################\n";
 		}
+	}
+	
+	void printpatterns() {
+		struct {	
+		bool operator ()(const pair<UL, bitset<SIZE_OF_COMPARTMENT> > &a, const pair<UL, bitset<SIZE_OF_COMPARTMENT> > &b) {
+			return a.first <= b.first; 
+		}
+		} p_comparator;
+		UL total_count = 0;
+		cout << "###############################################################\n";
+		cout << "ADDRESS EXISTS PATTERNS:\n";
+		for (auto idx: pattern_exist) {
+			//cout << idx.first << "\t" << idx.second << endl;
+			//patterns.push_back( std::make_pair(idx.second, idx.first) );
+			total_count += idx.second;
+		}
+	
+		for (auto idx: pattern_exist) {
+			//if ((double)((double)idx.second*100.0) >= (double)((double)total_count*(double)GREATER_THAN_PERCENT_PATTERNS))
+				patterns.push_back( std::make_pair(idx.second, idx.first) );
+		}
+		
+		sort(patterns.begin(), patterns.end(), p_comparator);
+		for(auto idx: patterns) {
+			cout << (idx.first*100.0)/total_count << "\t" << idx.first << "\t" << idx.second << endl;
+		}
+		cout << "TOTAL COUNT: " << total_count << endl;
+		cout << "###############################################################\n";
+		cout << endl << endl << endl;
+		total_count = 0;
+		patterns.clear();
+		cout << "###############################################################\n";
+		cout << "ADDRESS DIRTY PATTERNS:\n";
+		
+		for (auto idx: pattern_dirty) {
+			total_count += idx.second;
+		}
+		
+		for (auto idx: pattern_dirty) {
+			//if (((double)idx.second*100.0) >= (double)((double)total_count*(double)GREATER_THAN_PERCENT_PATTERNS))
+				patterns.push_back( std::make_pair(idx.second, idx.first) );
+		}
+
+		sort(patterns.begin(), patterns.end(), p_comparator);
+		for(auto idx: patterns) {
+			cout << (idx.first*100.0)/total_count << "\t" << idx.first << "\t" << idx.second << endl;
+		}
+		cout << "TOTAL COUNT: " << total_count << endl;
+		cout << "###############################################################\n";
 	}
 };
 

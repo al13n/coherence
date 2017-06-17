@@ -198,6 +198,8 @@ int main() {
 	}
 	
 	_dir.print();
+	_dir.printpatterns();
+	
 	cout << "\n------------------------CONFIG-----------------------------------------------\n";
 	cout << configcontent << endl;
 	cout << "-----------------------------------------------------------------------------\n\n";
@@ -219,5 +221,6 @@ int main() {
 	cout << "MAX RANGE COVERAGE: " << _dir.get_max_rangecoverage() << endl;
 	cout << "ENTRY MAX RANGE COVERAGE: " << _dir.get_entry_max_rangecoverage() << endl;
 	cout << "NUMBER OF GPU EVICTIONS: " << _gpu.getnum_evictions() << endl;
+	
 	return 0;
 }
