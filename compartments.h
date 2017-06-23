@@ -485,10 +485,10 @@ public:
 		shouldpurge();
 		return flag;
 	}
-
-	bool remove(const UL &address, bool isgpuaddress) {
+	
+	bool remove(const UL &address, isGpu_address isgpuaddress) {
 		UL gpu_address = address;
-		if (!isgpuaddress) {
+		if (!bool(isgpuaddress)) {
 			gpu_address = __getaddress_cache__(address);
 		}
 		bool flag = false;
@@ -660,13 +660,11 @@ public:
 		cout << "###############################################################\n";
 		cout << "ADDRESS EXISTS PATTERNS:\n";
 		for (auto idx: pattern_exist) {
-			//cout << idx.first << "\t" << idx.second << endl;
-			//patterns.push_back( std::make_pair(idx.second, idx.first) );
 			total_count += idx.second;
 		}
 	
 		for (auto idx: pattern_exist) {
-			//if ((double)((double)idx.second*100.0) >= (double)((double)total_count*(double)GREATER_THAN_PERCENT_PATTERNS))
+			if ((double)((double)idx.second*100.0) >= (double)((double)total_count*(double)GREATER_THAN_PERCENT_PATTERNS))
 				patterns.push_back( std::make_pair(idx.second, idx.first) );
 		}
 		
@@ -687,7 +685,7 @@ public:
 		}
 		
 		for (auto idx: pattern_dirty) {
-			//if (((double)idx.second*100.0) >= (double)((double)total_count*(double)GREATER_THAN_PERCENT_PATTERNS))
+			if (((double)idx.second*100.0) >= (double)((double)total_count*(double)GREATER_THAN_PERCENT_PATTERNS))
 				patterns.push_back( std::make_pair(idx.second, idx.first) );
 		}
 

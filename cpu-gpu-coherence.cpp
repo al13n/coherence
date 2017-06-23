@@ -134,7 +134,7 @@ int main() {
 					} else {
 						no_fps();
 						_gpu.remove(address);
-						_dir.remove(address, false);
+						_dir.remove(address, isGpu_address::False);
 					}
 				} else {
 					dir_exists[0]++;
@@ -160,7 +160,7 @@ int main() {
 				// Is this address being replaced on the GPU? - update directory
 				if (_gpu.isreplace(address)) {
 					UL r_address = _gpu.getaddress_replace(address);
-					_dir.remove(r_address, true);
+					_dir.remove(r_address, isGpu_address::True);
 				}
 				
 				_dir.insert(address);
@@ -176,7 +176,7 @@ int main() {
 				// Is this address being replaced on the GPU?
 				if (_gpu.isreplace(address)) {
 					UL r_address = _gpu.getaddress_replace(address);
-					_dir.remove(r_address, true);
+					_dir.remove(r_address, isGpu_address::True);
 				}
 				if (!_gpu.exists(address)) {
 					//missfile << address << endl;
@@ -197,7 +197,7 @@ int main() {
 		assert(errors == 0);
 	}
 	
-	_dir.print();
+	//_dir.print();
 	_dir.printpatterns();
 	
 	cout << "\n------------------------CONFIG-----------------------------------------------\n";
