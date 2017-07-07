@@ -8,6 +8,13 @@
 #include <limits>
 
 vector < pair<UL, bitset<SIZE_OF_COMPARTMENT> > > patterns;
+vector < pair<UL, bitset<2*SIZE_OF_COMPARTMENT> > > creation_eviction_pattern;
+
+
+unordered_map< bitset<SIZE_OF_COMPARTMENT>, UL > pattern_exist;
+unordered_map< bitset<SIZE_OF_COMPARTMENT>, UL > pattern_dirty;
+unordered_map< bitset<2*SIZE_OF_COMPARTMENT>, UL > creation_eviction_exist;
+unordered_map< bitset<2*SIZE_OF_COMPARTMENT>, UL > creation_eviction_dirty;
 
 class dir_simulator {
 private:
@@ -21,12 +28,69 @@ private:
 		shared_ptr<compartment> previous;
 		shared_ptr<compartment> next;
 		
+		bool captured_creation_pattern_dirty;
+		bitset<SIZE_OF_COMPARTMENT> creation_pattern_exists;
+		bitset<SIZE_OF_COMPARTMENT> creation_pattern_dirty;
+		bitset<SIZE_OF_COMPARTMENT> eviction_pattern_exists;
+		bitset<SIZE_OF_COMPARTMENT> eviction_pattern_dirty;
+
+		void getpattern(const vector<rangedata> &address_list, bitset<SIZE_OF_COMPARTMENT> &pattern) {
+			for (int idx = 0; idx < address_list.size(); idx++) {
+				const auto &r = address_list[idx];
+				for (UL address = r.start; address <= r.end; address++) {
+					UL offset = address%SIZE_OF_COMPARTMENT;
+					pattern[offset] = 1;
+				}
+			}
+		}
+		
 		~compartment() {
 			previous = next = nullptr;
+			if (GET_PATTERN_ON_EVICTION) {
+				getpattern(address_exist, eviction_pattern_exists);
+				getpattern(address_dirty, eviction_pattern_dirty);
+			}
 			address_exist.clear();
 			address_dirty.clear();
+			if (GET_PATTERN_ON_CREATION && GET_PATTERN_ON_EVICTION) {
+				bitset <2*SIZE_OF_COMPARTMENT> exist_p;
+				bitset <2*SIZE_OF_COMPARTMENT> dirty_p;
+				
+				for (int idx = 0; idx < SIZE_OF_COMPARTMENT; idx++) {
+					exist_p[idx] = creation_pattern_exists[idx];
+					dirty_p[idx] = creation_pattern_dirty[idx];
+				}
+				
+				for (int idx = 0; idx < SIZE_OF_COMPARTMENT; idx++) {
+					exist_p[idx + SIZE_OF_COMPARTMENT] = eviction_pattern_exists[idx];
+					dirty_p[idx + SIZE_OF_COMPARTMENT] = eviction_pattern_dirty[idx];
+				}
+			
+				if (creation_eviction_exist.find(exist_p) != creation_eviction_exist.end()) {
+					creation_eviction_exist[exist_p]++;
+				} else {
+					creation_eviction_exist.insert(std::make_pair(exist_p, 1));
+				}
+				
+				if (creation_eviction_dirty.find(dirty_p) != creation_eviction_dirty.end()) {
+					creation_eviction_dirty[dirty_p]++;
+				} else {
+					creation_eviction_dirty.insert(std::make_pair(dirty_p, 1));
+				}
+			}
 		}
 			
+		compartment(UL gpu_address): previous{nullptr}, next{nullptr}{
+			address_exist.clear();
+			address_dirty.clear();
+			captured_creation_pattern_dirty = false;
+			_rangecover = 0;
+			insert(gpu_address);
+			if (GET_PATTERN_ON_CREATION) {
+				getpattern(address_exist, creation_pattern_exists);
+			}
+		}
+		
 		UL size() {
 			if (address_exist.empty() && address_dirty.empty())	
 				return 0;
@@ -36,14 +100,6 @@ private:
 		}
 
 		bool existsinvector(vector<rangedata> & vec, const UL &check_address) {
-                        /*
-			for (auto &idx: vec) {
-                                if (idx.findinrange(check_address)) {
-                                        return true;
-                                }
-                        }
-			*/
-		
 			int start = 0;
 			int end = vec.size() - 1;
 			while (start <= end) {
@@ -149,14 +205,6 @@ private:
 			return false;
 		}
 
-		compartment(UL gpu_address): previous{nullptr}, next{nullptr}{
-			address_exist.clear();
-			address_dirty.clear();
-			_rangecover = 0;
-			insert(gpu_address);
-			//insertinvector(address_exist, gpu_address, IS_ACCURATE_ADDRESS_EXIST);
-		}
-		
 		bool exists(const UL &address) {
 			return existsinvector(address_exist, address);
 		}
@@ -178,10 +226,17 @@ private:
 		}
 		
 		bool markdirty(const UL &address) {
+			bool flag = false;
 			if (existsinvector(address_exist, address)) {
-				return insertinvector(address_dirty, address, IS_ACCURATE_ADDRESS_DIRTY); 
+				flag = insertinvector(address_dirty, address, IS_ACCURATE_ADDRESS_DIRTY); 
 			}
-			return false;
+			
+			if (flag && GET_PATTERN_ON_CREATION && !captured_creation_pattern_dirty) {
+				captured_creation_pattern_dirty = true;
+				getpattern(address_dirty, creation_pattern_dirty);
+			}
+			
+			return flag;
 		}
 		
 		bool isdirty(const UL &address) {
@@ -253,8 +308,6 @@ private:
 	};
 	
 	unordered_map< UL, shared_ptr<compartment> > c_p;
-	unordered_map< bitset<SIZE_OF_COMPARTMENT>, UL > pattern_exist;
-	unordered_map< bitset<SIZE_OF_COMPARTMENT>, UL > pattern_dirty;
 	shared_ptr<compartment> dir_mem;
 	shared_ptr<compartment> tail_dir_mem;
 	gpu_simulator *gpu;
@@ -404,7 +457,17 @@ public:
 	UL get_entry_max_rangecoverage() {
 		return entry_max_range_coverage;
 	}
-
+	
+	void getpattern(const vector<rangedata> &address_list, bitset<SIZE_OF_COMPARTMENT> &pattern) {
+		for (int idx = 0; idx < address_list.size(); idx++) {
+			const auto &r = address_list[idx];
+			for (UL address = r.start; address <= r.end; address++) {
+				UL offset = address%SIZE_OF_COMPARTMENT;
+				pattern[offset] = 1;
+			}
+		}
+	}
+	
 	void getexistpattern(const UL &key) {
 		bitset<SIZE_OF_COMPARTMENT> pattern;
 
@@ -481,7 +544,10 @@ public:
 		}
 		
 		max_sz = max(size(), max_sz);
-		if (GET_PATTERN_ON_UPDATE) getexistpattern(key);
+		if (GET_PATTERN_ON_UPDATE) {
+			getexistpattern(key);
+		}
+		
 		shouldpurge();
 		return flag;
 	}
@@ -696,6 +762,67 @@ public:
 		cout << "TOTAL COUNT: " << total_count << endl;
 		cout << "###############################################################\n";
 	}
+
+
+	void print_creationeviction_patterns() {
+		struct {	
+		bool operator ()(const pair<UL, bitset<2*SIZE_OF_COMPARTMENT> > &a, const pair<UL, bitset<2*SIZE_OF_COMPARTMENT> > &b) {
+			return a.first <= b.first; 
+		}
+		} p_comparator;
+		UL total_count = 0;
+		cout << "###############################################################\n";
+		cout << "ADDRESS EXISTS PATTERNS - EVICTION::CREATION :\n";
+		for (auto idx: creation_eviction_exist) {
+			total_count += idx.second;
+		}
+	
+		for (auto idx: creation_eviction_exist) {
+			if ((double)((double)idx.second*100.0) >= (double)((double)total_count*(double)GREATER_THAN_PERCENT_PATTERNS))
+				creation_eviction_pattern.push_back( std::make_pair(idx.second, idx.first) );
+		}
+		
+		sort(creation_eviction_pattern.begin(), creation_eviction_pattern.end(), p_comparator);
+		for(auto idx: creation_eviction_pattern) {
+			cout << (idx.first*100.0)/total_count << "\t" << idx.first << "\t\t";
+			for(int bit = 0; bit < SIZE_OF_COMPARTMENT; bit++)
+				cout << idx.second[bit];
+			cout << "\t";
+			for(int bit = 0; bit < SIZE_OF_COMPARTMENT; bit++)
+				cout << idx.second[bit+SIZE_OF_COMPARTMENT];
+			cout << endl;
+		}
+		cout << "TOTAL COUNT: " << total_count << endl;
+		cout << "###############################################################\n";
+		cout << endl << endl << endl;
+		total_count = 0;
+		creation_eviction_pattern.clear();
+		cout << "###############################################################\n";
+		cout << "ADDRESS DIRTY PATTERNS - EVICTION::CREATION :\n";
+		
+		for (auto idx: creation_eviction_dirty) {
+			total_count += idx.second;
+		}
+		
+		for (auto idx: creation_eviction_dirty) {
+			if ((double)((double)idx.second*100.0) >= (double)((double)total_count*(double)GREATER_THAN_PERCENT_PATTERNS))
+				creation_eviction_pattern.push_back( std::make_pair(idx.second, idx.first) );
+		}
+
+		sort(creation_eviction_pattern.begin(), creation_eviction_pattern.end(), p_comparator);
+		for(auto idx: creation_eviction_pattern) {
+			cout << (idx.first*100.0)/total_count << "\t" << idx.first << "\t\t";
+			for(int bit = 0; bit < SIZE_OF_COMPARTMENT; bit++)
+				cout << idx.second[bit];
+			cout << "\t";
+			for(int bit = 0; bit < SIZE_OF_COMPARTMENT; bit++)
+				cout << idx.second[bit+SIZE_OF_COMPARTMENT];
+			cout << endl;
+		}
+		cout << "TOTAL COUNT: " << total_count << endl;
+		cout << "###############################################################\n";
+	}
+	
 };
 
 #endif

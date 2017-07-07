@@ -2,8 +2,8 @@
 #include "config.h"
 #include "gpu-simulator.h"
 //#include "dir-simulator.h"
-#include "compartments.h"
-
+//#include "compartments.h"
+#include "patterns_regions.h"
 int fps = 0;
 int consult = 0;
 int nofps = 0;
@@ -198,7 +198,7 @@ int main() {
 	}
 	
 	//_dir.print();
-	_dir.printpatterns();
+	//_dir.print_creationeviction_patterns();
 	
 	cout << "\n------------------------CONFIG-----------------------------------------------\n";
 	cout << configcontent << endl;
@@ -210,16 +210,16 @@ int main() {
 	cout << "DIR DIRTY YES: " << dir_dirty[1] << " DIR DIRTY NO: " << dir_dirty[0] << endl;
 	cout << "DIR ASK EXISTS: " << ask_dir_exists << " ";
 	cout << "DIR EXISTS YES: " << dir_exists[1] << " DIR EXISTS NO: " << dir_exists[0] << endl;
-	cout << "NUMBER OF DIR LINES: " << _dir.numberoflines() << endl;
+	//cout << "NUMBER OF DIR LINES: " << _dir.numberoflines() << endl;
 	cout << "CURRENT SIZE OF DIRECTORY: " << _dir.size() << " bytes " << (_dir.size())/1024 << " kilobytes" << endl;
 	cout << "MAX SIZE OF DIRECTORY: " << _dir.get_max_size() << " bytes " << (_dir.get_max_size())/1024 << " kilobytes" << endl;
 	cout << "TIMES DIR ASKED: " << consult << " FALSE POSITIVE: " << fps << " (%)false_positives: " << (fps*100.0/consult) << endl;
 	cout << "NO FALSE POSITIVE: " << nofps << endl;
-	cout << "TOTAL DATA CLEARED DUE TO DIR CLEARANCE: " << _gpu.gettotal_data_cleared() << " addresses " << _gpu.gettotal_data_cleared()*64 << " (bytes) " << (_gpu.gettotal_data_cleared()*64)/1024 << " (kb)" << endl;
+	//cout << "TOTAL DATA CLEARED DUE TO DIR CLEARANCE: " << _gpu.gettotal_data_cleared() << " addresses " << _gpu.gettotal_data_cleared()*64 << " (bytes) " << (_gpu.gettotal_data_cleared()*64)/1024 << " (kb)" << endl;
 	cout << "GPU MISSES: " << gpu_misses << endl;
-	cout << "AVG RANGE COVERAGE: " << _dir.get_avg_rangecoverage() << endl;
-	cout << "MAX RANGE COVERAGE: " << _dir.get_max_rangecoverage() << endl;
-	cout << "ENTRY MAX RANGE COVERAGE: " << _dir.get_entry_max_rangecoverage() << endl;
+	//cout << "AVG RANGE COVERAGE: " << _dir.get_avg_rangecoverage() << endl;
+	//cout << "MAX RANGE COVERAGE: " << _dir.get_max_rangecoverage() << endl;
+	//cout << "ENTRY MAX RANGE COVERAGE: " << _dir.get_entry_max_rangecoverage() << endl;
 	cout << "NUMBER OF GPU EVICTIONS: " << _gpu.getnum_evictions() << endl;
 	
 	return 0;
