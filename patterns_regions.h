@@ -34,7 +34,7 @@ UL getpatternfromidx(const UL &idx) {
 	return pattern;
 }
 
-class existdata {
+class quadleveldata {
 private:
 	set <UL> patterns[4];
 	unordered_map <UL, UL> others;
@@ -115,7 +115,7 @@ public:
 	}
 };
 
-class dirtydata {
+class bileveldata {
 private:
 	set <UL> patterns;
 	unordered_map <UL, UL> others;
@@ -184,8 +184,8 @@ public:
 
 class dir_simulator {
 private:
-	existdata exist_structure;
-	dirtydata dirty_structure;
+	bileveldata exist_structure;
+	bileveldata dirty_structure;
 	gpu_simulator *gpu;
 	UL max_sz;
 	UL sz;
