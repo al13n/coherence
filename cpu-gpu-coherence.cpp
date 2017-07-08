@@ -3,7 +3,9 @@
 #include "gpu-simulator.h"
 //#include "dir-simulator.h"
 //#include "compartments.h"
-#include "patterns_regions.h"
+//#include "patterns_regions.h"
+#include "compartments_patterns.h"
+
 int fps = 0;
 int consult = 0;
 int nofps = 0;
@@ -62,6 +64,7 @@ int main() {
 		//instruction = instructions[pc++];
 		pc++;
 		if (pc%1000000 == 0) cout << "PROCESSING INSTRUCTION: " << pc << endl;
+		if (pc%5000000 == 0) _dir.print();
 		stringstream ss(instruction);
 		string type;
 		UL address;
