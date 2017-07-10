@@ -30,7 +30,7 @@ public:
 			return 0;
 		UL total_size = 0;
 		total_size += address_exist.size();
-		return total_size*sizeof(rangedata) + sizeof(previous) + sizeof(next);
+		return total_size*sizeof(rangedata) + (COUNT_LINK_SIZE_COMPARTMENT ? (sizeof(previous) + sizeof(next)) : 0);
 	}
 
 	bool existsinvector(vector<rangedata> & vec, const UL &check_address) {

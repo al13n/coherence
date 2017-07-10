@@ -91,7 +91,7 @@ public:
 	}
 	
 	UL size() {
-		return sz + c_p.size()*(sizeof(UL) + sizeof(compartment *)) + sizeof(tail_dir_mem) + sizeof(dir_mem);
+		return sz + c_p.size()*(sizeof(UL) + sizeof(compartment *)) + (COUNT_LINK_SIZE_COMPARTMENT ? (sizeof(tail_dir_mem) + sizeof(dir_mem)) : 0) + dirty_structure.size();
 	}
 	
 	bool exists(const UL &cpu_address) {
@@ -102,7 +102,7 @@ public:
 		
 		if (c_p.find(key) != c_p.end()) {
 			flag = c_p[key]->exists(gpu_address);
-			removefromlistandmovetohead(key);	
+			if (COUNT_LINK_SIZE_COMPARTMENT) removefromlistandmovetohead(key);	
 		}
 		return flag;
 	}
@@ -116,11 +116,11 @@ public:
 			UL prev_sz = c_p[key]->size();
 			flag = c_p[key]->insert(gpu_address);
 			sz += (c_p[key]->size() - prev_sz);
-			removefromlistandmovetohead(key);
+			if (COUNT_LINK_SIZE_COMPARTMENT) removefromlistandmovetohead(key);
 		} else {
 			auto newcmp = std::make_shared<compartment> (gpu_address);
 			c_p.insert(std::make_pair(key, newcmp));
-			removefromlistandmovetohead(key);
+			if (COUNT_LINK_SIZE_COMPARTMENT) removefromlistandmovetohead(key);
 			sz += newcmp->size();
 			flag = true;
 		}
@@ -142,13 +142,14 @@ public:
 			flag = c_p[key]->remove(gpu_address);
 			sz += (c_p[key]->size() - prev_sz);
 			if (c_p[key]->size() != 0) {
-				removefromlistandmovetohead(key);
+				if (COUNT_LINK_SIZE_COMPARTMENT) removefromlistandmovetohead(key);
 			} else {
-				deletefromlist(key);
+				if (COUNT_LINK_SIZE_COMPARTMENT) deletefromlist(key);
 				deletefrommap(key);
 			}
 		}
 		
+		dirty_structure.remove(gpu_address);	
 		max_sz = max(size(), max_sz);
 		return flag;
 	}
@@ -163,9 +164,9 @@ public:
 			flag = c_p[key]->remove(gpu_address);
 			sz += (c_p[key]->size() - prev_sz);
 			if (c_p[key]->size() != 0) {
-				removefromlistandmovetohead(key);
+				if (COUNT_LINK_SIZE_COMPARTMENT) removefromlistandmovetohead(key);
 			} else {
-				deletefromlist(key);
+				if (COUNT_LINK_SIZE_COMPARTMENT) deletefromlist(key);
 				deletefrommap(key);
 			}
 		}
@@ -200,15 +201,32 @@ public:
 	}
 	
 	void print() {
-		UL num = 0;
 		UL total = 0;
-		for (auto idx = tail_dir_mem; idx != nullptr; idx=idx->next) {
-			num++;
-			total += idx->getnumberofranges();
+		map<UL, UL> coverage;
+		for (auto idx = c_p.begin(); idx != c_p.end(); ++idx) {
+			total += idx->second->getnumberofranges();
+			UL cover = idx->second->getcoverage();
+			if (coverage.find(cover) != coverage.end())	coverage[cover]++;
+			else	coverage[cover] = 1;		
 		}
+		cout << "#################### CURRENT SIZE ###########################################\n";
+		cout << "TOTAL SIZE:\t" << size() << " bytes\t" << (size()*1.0)/1024 << " kilobytes\n";
+		cout << "DIRTY STRUCTURE SIZE:\t" << dirty_structure.size() << " bytes\t" << (dirty_structure.size()*1.0)/1024 << " kilobytes" << endl; 
 		cout << "#################### ADDRESS EXISTS ###########################################\n";
-		cout << "NUMBER OF LINES:\t" << num << endl;
+		cout << "NUMBER OF LINES:\t" << c_p.size() << endl;
 		cout << "TOTAL NUMBER OF RANGES:\t" << total << endl;
+		cout << "COVERAGE RATIO:\n";
+		total = 0;
+		vector<UL> ranges;
+		for (auto it = coverage.begin(); it != coverage.end(); it++) {
+			total += it->second;
+			ranges.push_back(it->second);
+		}
+		sort(ranges.begin(), ranges.end());
+		for (auto it = coverage.begin(); it != coverage.end(); it++) {
+			if (ranges.size() <= 20 || it->second >= ranges[ranges.size()-20])
+				cout << it->first << " " << (it->second*100.0)/total << endl;
+		}
 		cout << "#################### ADDRESS DIRTY  ###########################################\n";
 		dirty_structure.print();
 		cout << "###############################################################################\n";

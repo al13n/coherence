@@ -27,7 +27,6 @@ int main() {
 	string instruction;
 	gpu_simulator _gpu;
 	dir_simulator _dir(&_gpu);
-	
 	UL cpu_loads = 0;
 	UL cpu_stores = 0;
 	UL gpu_loads = 0;
