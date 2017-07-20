@@ -1,0 +1,12 @@
+#!/bin/bash
+for i in $(seq 20 21);
+do
+	cp config.h config_$i.h
+	echo "#define GPU_CACHE_SIZE $i" >> config_$i.h
+	rm common.h
+	cp _common.h common.h
+	echo "#include \"config_$i.h\"" >> common.h
+	g++ -std=c++11 -o gpumiss_$i -g get-gpu-misses.cpp
+	sleep 2s
+	./gpumiss_$i < ~/coherence/lulesh.trace &> data2/$i &
+done

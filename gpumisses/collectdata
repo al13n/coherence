@@ -1,0 +1,6 @@
+#!/bin/bash
+for i in $(seq 20 34);
+do
+	A=$(grep "GPU MISSES" data2/$i | cut -d " " -f3)
+	echo	$i	,	$A
+done
