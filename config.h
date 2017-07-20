@@ -1,5 +1,7 @@
 #pragma once
 
+#define GPU_CACHE_SIZE 26
+
 #define CLOSEST_RANGE_INSERT_LIMIT (1<<4) 
 //#define MAX_AGE_LIMIT 100
 //#define MAX_FULLRANGE_LIMIT (1<<12)

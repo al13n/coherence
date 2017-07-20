@@ -60,13 +60,13 @@ public:
 				if (i > 0 
 				&& ( (vec[i-1].end == vec[i].start) || ( (vec[i-1].end+1) == vec[i].start ) )
 				) {
-					vec[i-1].end = vec[i].end;
+					vec[i-1].setEnd(vec[i].end);
 					vec.erase(vec.begin() + i);
 				} else {
 					if (i+1 < vec.size() 
 					&& ( (vec[i+1].start == vec[i].end) || ( vec[i+1].start == (vec[i].end+1) ) )
 					) {
-						vec[i].end = vec[i+1].end;
+						vec[i].setEnd(vec[i+1].end);
 						vec.erase(vec.begin() + i+1);
 					}
 				}
@@ -107,13 +107,13 @@ public:
 		}	
 		if (pos != -1) {
 			if (vec[pos].start == address) {
-				vec[pos].start = address+1;
+				vec[pos].setStart(address+1);
 				if (vec[pos].start > vec[pos].end) {
 					vec.erase(vec.begin() + pos);
 				}
 			}
 			else if (vec[pos].end == address) {
-				vec[pos].end = address - 1;
+				vec[pos].setEnd(address - 1);
 				if (vec[pos].start > vec[pos].end) {
 					vec.erase(vec.begin() + pos);
 				}
@@ -130,7 +130,7 @@ public:
 				if(address < e) {
 					rangedata newrange(address+1, e);
 					vec.push_back(newrange);
-				}	
+				}
 				std::sort(vec.begin(), vec.end());
 			}
 			return true;

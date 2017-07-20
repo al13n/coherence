@@ -215,7 +215,7 @@ public:
 		cout << "#################### ADDRESS EXISTS ###########################################\n";
 		cout << "NUMBER OF LINES:\t" << c_p.size() << endl;
 		cout << "TOTAL NUMBER OF RANGES:\t" << total << endl;
-		cout << "COVERAGE RATIO:\n";
+		cout << "LINES COVERAGE RATIO:\n";
 		total = 0;
 		vector<UL> ranges;
 		for (auto it = coverage.begin(); it != coverage.end(); it++) {
@@ -224,6 +224,18 @@ public:
 		}
 		sort(ranges.begin(), ranges.end());
 		for (auto it = coverage.begin(); it != coverage.end(); it++) {
+			if (ranges.size() <= 20 || it->second >= ranges[ranges.size()-20])
+				cout << it->first << " " << (it->second*100.0)/total << endl;
+		}
+		cout << "INDIVIDUAL RANGE COVERAGE RATIO:\n";
+		total = 0;
+		ranges.clear();
+		for (auto it = rangedata::coverage.begin(); it != rangedata::coverage.end(); it++) {
+			total += it->second;
+			ranges.push_back(it->second);
+		}
+		sort(ranges.begin(), ranges.end());
+		for (auto it = rangedata::coverage.begin(); it != rangedata::coverage.end(); it++) {
 			if (ranges.size() <= 20 || it->second >= ranges[ranges.size()-20])
 				cout << it->first << " " << (it->second*100.0)/total << endl;
 		}

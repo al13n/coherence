@@ -2,7 +2,6 @@
 #define __GPU_SIMULATOR_H__
 #include "utility.h"
 
-
 class gpu_simulator {
 private:	
 	struct data {
@@ -72,6 +71,9 @@ bool gpu_simulator::setdirtybit(const UL cpu_address) {
 }
 
 void gpu_simulator::remove(const UL cpu_address) {
+	if (!exists(cpu_address)) {
+		return ;
+	}
 	pair<UL, UL> _addresstag = __getaddresstagpair_gpu__(cpu_address);
 	gpu_mem[_addresstag.first] = {0, 0, 0};
 }

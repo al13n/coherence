@@ -1,11 +1,25 @@
 #ifndef __UTILITY_H_
 #define __UTILITY_H_
 
+#ifndef NDEBUG
+#   define ASSERT(condition, message) \
+    do { \
+        if (! (condition)) { \
+            std::cerr << "Assertion `" #condition "` failed in " << __FILE__ \
+                      << " line " << __LINE__ << ": " << message << std::endl; \
+            std::terminate(); \
+        } \
+    } while (false)
+#else
+#   define ASSERT(condition, message) do { } while (false)
+#endif
+
+//#include "config.h"
 using namespace std;
 
 typedef unsigned long int UL;
 static const int GPU_OFFSET_LEN = 6;
-static const int GPU_ADDRESS_LEN = 20;
+static const int GPU_ADDRESS_LEN = GPU_CACHE_SIZE - GPU_OFFSET_LEN;
 
 inline UL __getaddress_gpu__(const UL cpu_address)
 {
@@ -38,14 +52,55 @@ inline pair<UL, UL> __getaddresstagpair_gpu__(const UL cpu_address)
 	
 enum class isGpu_address : bool { False, True };
 
-struct rangedata {
+class rangedata {
+public:
+	static unordered_map<UL, UL> coverage;
 	UL start;
 	UL end;
+
+	static void addcover(const UL cover) {
+		if (cover == 0) return;
+		if (coverage.find(cover) != coverage.end()) {
+			coverage[cover]++;
+		} else {
+			coverage.insert(make_pair(cover, (UL)1));
+		}
+	}
 	
+	static void removecover(const UL cover) {
+		if(coverage.find(cover) != coverage.end()) {
+			coverage[cover]--;
+			if (coverage[cover] == 0) {
+				coverage.erase(coverage.find(cover));
+			}
+			return;
+		}
+	}
+
+	~rangedata() {
+		removecover(getcoverage());
+	}
+		
 	rangedata(UL s, UL e):start(s),end(e) {
+		addcover(getcoverage());
+	}
+	
+	bool setStart(UL address) {
+		removecover(getcoverage());
+		start = address;
+		addcover(getcoverage());
+		return true;
+	}
+	
+	bool setEnd(UL address) {
+		removecover(getcoverage());
+		end = address;
+		addcover(getcoverage());
+		return true;
 	}
 	
 	UL getcoverage() {
+		if (start > end) return 0;
 		return (UL)(end - start + (UL)1);
 	}
 	
@@ -63,6 +118,8 @@ struct rangedata {
 			return false;
 		}
 		
+		UL prev_cover = getcoverage();
+		
 		if (insert_val < start) {
 			start = insert_val;
 		}
@@ -71,17 +128,24 @@ struct rangedata {
 			end = insert_val;
 		}
 		
+		removecover(prev_cover);
+		addcover(getcoverage());
 		return true;
 	}
 
 	bool addoutlier(const UL insert_val) {
+		UL prev_cover = getcoverage();
 		if (start > insert_val) {
 			start = insert_val;
+			removecover(prev_cover);
+			addcover(getcoverage());
 			return true;
 		}
 
 		if (end < insert_val) {
 			end = insert_val;
+			removecover(prev_cover);
+			addcover(getcoverage());
 			return true;
 		}
 
@@ -96,5 +160,5 @@ struct rangedata {
 		cout << "START:\t" << start << " END:\t" << end << endl;
 	}
 };
-		
+unordered_map<UL, UL> rangedata::coverage;
 #endif
